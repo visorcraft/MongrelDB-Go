@@ -1,13 +1,21 @@
-# MongrelDB Go Client
+<p align="center">
+  <img src="assets/mongrel.png" alt="MongrelDB logo" width="250" />
+</p>
 
-MongrelDB Go Client is the pure-Go HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Go applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection - all over HTTP to a running `mongreldb-server` daemon.
+<h1 align="center">MongrelDB Go Client</h1>
 
-No cgo and no external dependencies - built on the standard library `net/http`. The API mirrors the MongrelDB PHP client.
+<p align="center">
+  <b>Pure Go client for MongrelDB - embedded+server database with SQL, vector search, full-text search, and AI-native retrieval.</b>
+  <br />
+  No cgo and no external dependencies - built on the standard library <code>net/http</code>. The API mirrors the MongrelDB PHP client.
+</p>
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/visorcraft/mongreldb-go.svg)](https://pkg.go.dev/github.com/visorcraft/mongreldb-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/visorcraft/mongreldb-go)](https://goreportcard.com/report/github.com/visorcraft/mongreldb-go)
-[![CI](https://github.com/visorcraft/MongrelDB-Go/actions/workflows/ci.yml/badge.svg)](https://github.com/visorcraft/MongrelDB-Go/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+<p align="center">
+  <a href="https://pkg.go.dev/github.com/visorcraft/mongreldb-go"><img src="https://pkg.go.dev/badge/github.com/visorcraft/mongreldb-go.svg" alt="Go Reference" /></a>
+  <a href="https://goreportcard.com/report/github.com/visorcraft/mongreldb-go"><img src="https://goreportcard.com/badge/github.com/visorcraft/mongreldb-go" alt="Go Report Card" /></a>
+  <a href="https://github.com/visorcraft/MongrelDB-Go/actions/workflows/ci.yml"><img src="https://github.com/visorcraft/MongrelDB-Go/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg" alt="License" /></a>
+</p>
 
 ## Package
 
