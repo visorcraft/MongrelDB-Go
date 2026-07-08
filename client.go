@@ -1,7 +1,7 @@
 // Package mongreldb is the pure-Go HTTP client for [MongrelDB].
 //
 // It talks to a running mongreldb-server daemon's JSON API over the standard
-// library net/http client — no cgo, no external dependencies. The surface
+// library net/http client - no cgo, no external dependencies. The surface
 // mirrors the MongrelDB PHP client: typed CRUD, a fluent query builder that
 // pushes conditions down to the engine's native indexes, idempotent batch
 // transactions, full SQL access, and schema introspection.
@@ -31,7 +31,7 @@ const DefaultBaseURL = "http://127.0.0.1:8453"
 
 // Cells is a column-id-to-value map. The client flattens it to the server's
 // on-wire [col_id, value, col_id, value, ...] array before sending. Pair order
-// is irrelevant — each value is preceded by its own column id.
+// is irrelevant - each value is preceded by its own column id.
 type Cells map[int64]any
 
 // Column describes one column in a CREATE TABLE request. It is sent to the
@@ -177,7 +177,7 @@ func (c *Client) Count(ctx context.Context, table string) (int64, error) {
 // ── CRUD (via the Kit typed transaction endpoint) ──────────────────────────
 
 // Put inserts a row. idempotencyKey, if non-empty, makes the commit safe to
-// retry — the daemon returns the original result on duplicate commits.
+// retry - the daemon returns the original result on duplicate commits.
 //
 // Returns the per-operation result object (the first element of the server's
 // results array).

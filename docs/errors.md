@@ -11,9 +11,9 @@ for each category.
 
 The client uses two complementary mechanisms:
 
-1. **Sentinel errors** — `ErrAuth`, `ErrNotFound`, `ErrConflict`, `ErrQuery`.
+1. **Sentinel errors** - `ErrAuth`, `ErrNotFound`, `ErrConflict`, `ErrQuery`.
    Match them with `errors.Is` to branch on the *category* of failure.
-2. **`*ResponseError`** — a concrete type carrying the HTTP status code and
+2. **`*ResponseError`** - a concrete type carrying the HTTP status code and
    the decoded server envelope (`code`, `message`, `op_index`). Match it with
    `errors.As` when you need the details.
 
@@ -84,7 +84,7 @@ Structured codes you will commonly see in `Code`:
 
 ## Discriminating errors
 
-### By category — `errors.Is`
+### By category - `errors.Is`
 
 ```go
 _, err := db.SchemaFor(ctx, "missing_table")
@@ -102,7 +102,7 @@ case err != nil:
 }
 ```
 
-### By details — `errors.As`
+### By details - `errors.As`
 
 ```go
 var re *mdb.ResponseError
@@ -126,7 +126,7 @@ if errors.Is(err, mdb.ErrConflict) {
 
 ## Recovery patterns
 
-### Auth failure — do not retry blindly
+### Auth failure - do not retry blindly
 
 A retry will not fix bad credentials. Surface the error to the caller or
 operator.
@@ -138,7 +138,7 @@ if errors.Is(err, mdb.ErrAuth) {
 }
 ```
 
-### Not found — fall back, do not crash
+### Not found - fall back, do not crash
 
 For lookups by primary key, a 404 may be a normal "absent" result.
 
@@ -146,7 +146,7 @@ For lookups by primary key, a 404 may be a normal "absent" result.
 rows, err := db.Query("orders").Where("pk", map[string]any{"value": id}).Execute(ctx)
 if err != nil {
 	if errors.Is(err, mdb.ErrNotFound) {
-		return nil, nil // table missing — treat as empty
+		return nil, nil // table missing - treat as empty
 	}
 	return nil, err
 }
@@ -155,7 +155,7 @@ if err != nil {
 Note: a `pk` query against an existing table returns zero rows, not a 404;
 `ErrNotFound` here means the table itself is missing.
 
-### Constraint conflict — report the offending op
+### Constraint conflict - report the offending op
 
 ```go
 _, err := txn.Commit(ctx, "")
@@ -169,9 +169,9 @@ if errors.Is(err, mdb.ErrConflict) {
 }
 ```
 
-The engine already rolled back the whole batch — there is nothing to undo.
+The engine already rolled back the whole batch - there is nothing to undo.
 
-### Transient failure — retry with an idempotency key
+### Transient failure - retry with an idempotency key
 
 `ErrQuery` covers transport and 5xx failures. With an idempotency key,
 retrying a transaction is safe (see [transactions.md](transactions.md)).
@@ -185,7 +185,7 @@ func run(ctx context.Context, txn *mdb.Transaction, key string) error {
 	if errors.Is(err, mdb.ErrAuth) || errors.Is(err, mdb.ErrConflict) {
 		return err // not transient
 	}
-	// ErrQuery / network — caller may retry with the same key.
+	// ErrQuery / network - caller may retry with the same key.
 	return err
 }
 ```
@@ -229,5 +229,5 @@ if errors.As(err, &re) {
 
 ## Next steps
 
-- [transactions.md](transactions.md) — constraint handling and retries in context
-- [auth.md](auth.md) — credential management
+- [transactions.md](transactions.md) - constraint handling and retries in context
+- [auth.md](auth.md) - credential management

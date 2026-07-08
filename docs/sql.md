@@ -7,8 +7,8 @@ SQL with `Client.SQL`:
 rows, err := db.SQL(ctx, "SELECT 1")
 ```
 
-This guide covers the SQL surface — DDL, DML, `CREATE TABLE AS SELECT`,
-recursive CTEs, and window functions — and when to reach for SQL versus the
+This guide covers the SQL surface - DDL, DML, `CREATE TABLE AS SELECT`,
+recursive CTEs, and window functions - and when to reach for SQL versus the
 native query builder.
 
 ---
@@ -22,7 +22,7 @@ slice with a nil error otherwise.
 In practice:
 
 - **DDL and DML** (`CREATE TABLE`, `INSERT`, `UPDATE`, `DELETE`) reply with a
-  non-JSON status body. `SQL` returns `[]`, nil — success is the signal.
+  non-JSON status body. `SQL` returns `[]`, nil - success is the signal.
 - **`SELECT`** in most daemon builds streams Arrow IPC bytes rather than JSON.
   `SQL` therefore returns `[]`, nil for SELECTs too. Use the native
   `QueryBuilder` for typed row retrieval in application code, and use `SQL`
@@ -182,7 +182,7 @@ Rules of thumb:
 - Need a typed Go `[]map[string]any` of matching rows? Use the query builder.
 - Building/dropping tables, or running a `CREATE TABLE AS SELECT`? Use SQL.
 - Joining multiple tables, computing rankings, or walking a graph? Use SQL.
-- Filtering by one or more indexed columns? Use the query builder — it is
+- Filtering by one or more indexed columns? Use the query builder - it is
   faster and avoids Arrow-to-Go decoding.
 
 Mix freely: create tables with SQL, write rows with `Client.Put`, read them
@@ -190,6 +190,6 @@ back with `QueryBuilder`, and run analytics with SQL.
 
 ## Next steps
 
-- [queries.md](queries.md) — every native index condition in detail
-- [transactions.md](transactions.md) — bulk inserts via batch transactions
-- [errors.md](errors.md) — handling SQL execution errors
+- [queries.md](queries.md) - every native index condition in detail
+- [transactions.md](transactions.md) - bulk inserts via batch transactions
+- [errors.md](errors.md) - handling SQL execution errors

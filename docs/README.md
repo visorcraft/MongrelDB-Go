@@ -1,4 +1,4 @@
-# MongrelDB Go Client — Guides
+# MongrelDB Go Client - Guides
 
 Task-focused guides for the pure-Go MongrelDB HTTP client. For the full API
 surface in one place, see the root [README](../README.md).

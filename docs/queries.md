@@ -1,7 +1,7 @@
 # Queries
 
 The fluent `QueryBuilder` pushes conditions down to MongrelDB's native indexes
-for sub-millisecond lookups — bitmap, learned-range, FM-index full text, HNSW
+for sub-millisecond lookups - bitmap, learned-range, FM-index full text, HNSW
 vector similarity, and more. Each condition type maps to one specialized
 index; conditions are AND-ed together.
 
@@ -48,7 +48,7 @@ shape:
 `params` is a `map[string]any`. Column references use the numeric **column
 id**, never the column name.
 
-### `pk` — exact primary-key match
+### `pk` - exact primary-key match
 
 The fastest lookup. `value` is the primary-key value.
 
@@ -58,7 +58,7 @@ db.Query("orders").
 	Execute(ctx)
 ```
 
-### `range` — integer range (learned-range index)
+### `range` - integer range (learned-range index)
 
 Inclusive bounds. Omit `lo` or `hi` for an open range.
 
@@ -77,7 +77,7 @@ db.Query("orders").
 	Execute(ctx)
 ```
 
-### `range_f64` — float range with inclusive/exclusive control
+### `range_f64` - float range with inclusive/exclusive control
 
 Adds `lo_inclusive` / `hi_inclusive` flags (default inclusive).
 
@@ -93,7 +93,7 @@ db.Query("orders").
 	Execute(ctx)
 ```
 
-### `bitmap_eq` — equality on a bitmap-indexed column
+### `bitmap_eq` - equality on a bitmap-indexed column
 
 Best for low-cardinality columns (status, category, booleans).
 
@@ -103,7 +103,7 @@ db.Query("orders").
 	Execute(ctx)
 ```
 
-### `bitmap_in` — IN predicate on a bitmap-indexed column
+### `bitmap_in` - IN predicate on a bitmap-indexed column
 
 Match any of a set of values.
 
@@ -116,17 +116,17 @@ db.Query("orders").
 	Execute(ctx)
 ```
 
-### `is_null` / `is_not_null` — null checks
+### `is_null` / `is_not_null` - null checks
 
 ```go
 db.Query("orders").Where("is_null", map[string]any{"column": int64(3)}).Execute(ctx)
 db.Query("orders").Where("is_not_null", map[string]any{"column": int64(3)}).Execute(ctx)
 ```
 
-### `fm_contains` — full-text substring search (FM-index)
+### `fm_contains` - full-text substring search (FM-index)
 
 Substring match within a column. Use `pattern` (the server key) or the
-friendly `value` alias — both translate to `pattern` on the wire for FTS
+friendly `value` alias - both translate to `pattern` on the wire for FTS
 conditions.
 
 ```go
@@ -144,7 +144,7 @@ db.Query("documents").
 	Execute(ctx)
 ```
 
-### `fm_contains_all` — multiple substrings, all must match
+### `fm_contains_all` - multiple substrings, all must match
 
 ```go
 db.Query("documents").
@@ -155,7 +155,7 @@ db.Query("documents").
 	Execute(ctx)
 ```
 
-### `ann` — dense vector similarity (HNSW)
+### `ann` - dense vector similarity (HNSW)
 
 Approximate nearest-neighbors over a `float32` vector column. `k` is the
 result count.
@@ -170,7 +170,7 @@ db.Query("embeddings").
 	Execute(ctx)
 ```
 
-### `sparse_match` — sparse vector match
+### `sparse_match` - sparse vector match
 
 For sparse/bag-of-words vectors.
 
@@ -184,7 +184,7 @@ db.Query("docs").
 	Execute(ctx)
 ```
 
-### `min_hash_similar` — MinHash similarity
+### `min_hash_similar` - MinHash similarity
 
 Near-duplicate detection via MinHash signatures.
 
@@ -296,7 +296,7 @@ The `value` → `pattern` alias applies **only** to FTS conditions, because
 
 ## Putting it together
 
-A realistic combined lookup — bitmap equality + range + projection + limit +
+A realistic combined lookup - bitmap equality + range + projection + limit +
 truncation check:
 
 ```go
@@ -318,4 +318,4 @@ func topSpenders(ctx context.Context, db *mdb.Client, customer string) ([]map[st
 ```
 
 For arbitrary predicates, joins, and aggregations that the native indexes do
-not cover, use SQL instead — see [sql.md](sql.md).
+not cover, use SQL instead - see [sql.md](sql.md).

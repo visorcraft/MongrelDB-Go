@@ -1,8 +1,8 @@
 # MongrelDB Go Client
 
-MongrelDB Go Client is the pure-Go HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Go applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection — all over HTTP to a running `mongreldb-server` daemon.
+MongrelDB Go Client is the pure-Go HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Go applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection - all over HTTP to a running `mongreldb-server` daemon.
 
-No cgo and no external dependencies — built on the standard library `net/http`. The API mirrors the MongrelDB PHP client.
+No cgo and no external dependencies - built on the standard library `net/http`. The API mirrors the MongrelDB PHP client.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/visorcraft/mongreldb-go.svg)](https://pkg.go.dev/github.com/visorcraft/mongreldb-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/visorcraft/mongreldb-go)](https://goreportcard.com/report/github.com/visorcraft/mongreldb-go)
@@ -24,7 +24,7 @@ No cgo and no external dependencies — built on the standard library `net/http`
 
 - **Typed CRUD** over the Kit transaction endpoint: `Put`, `Upsert` (insert-or-update on PK conflict), `Delete` by row id or primary key, all with optional idempotency keys for safe retries.
 - **Fluent query builder** that pushes conditions down to the engine's specialized indexes for sub-millisecond lookups: bitmap equality/IN, learned-range, null checks, FM-index full-text search, HNSW vector similarity (`ann`), and sparse vector match. Friendly aliases (`column` → `column_id`, `min`/`max` → `lo`/`hi`) are translated to the server's on-wire keys.
-- **Idempotent batch transactions** — operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
+- **Idempotent batch transactions** - operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
 - **Full SQL access** through the DataFusion-backed `/sql` endpoint: recursive CTEs, window functions, `CREATE TABLE AS SELECT`, materialized views, and multi-statement execution.
 - **Schema management**: typed table creation, full schema catalog, and per-table descriptors.
 - **User/role/credentials management** via SQL: Argon2id-hashed catalog users, roles, and `GRANT`/`REVOKE` table-level permissions, all executed through `SQL`.
@@ -36,12 +36,12 @@ No cgo and no external dependencies — built on the standard library `net/http`
 
 Task-focused, commented guides live in [`docs/`](docs):
 
-- [Quickstart](docs/quickstart.md) — install, start the daemon, write and run a complete program.
-- [Transactions](docs/transactions.md) — batch commits, idempotency keys, constraint handling.
-- [Queries](docs/queries.md) — every native condition type and the index it pushes down to.
-- [SQL](docs/sql.md) — recursive CTEs, window functions, advanced SQL.
-- [Authentication](docs/auth.md) — Bearer token, HTTP Basic, and open modes.
-- [Errors](docs/errors.md) — sentinel errors, `*ResponseError`, and recovery patterns.
+- [Quickstart](docs/quickstart.md) - install, start the daemon, write and run a complete program.
+- [Transactions](docs/transactions.md) - batch commits, idempotency keys, constraint handling.
+- [Queries](docs/queries.md) - every native condition type and the index it pushes down to.
+- [SQL](docs/sql.md) - recursive CTEs, window functions, advanced SQL.
+- [Authentication](docs/auth.md) - Bearer token, HTTP Basic, and open modes.
+- [Errors](docs/errors.md) - sentinel errors, `*ResponseError`, and recovery patterns.
 
 ## Quick Example
 
@@ -122,7 +122,7 @@ txn.Put("orders", mdb.Cells{1: int64(10), 2: "Dave", 3: 50.00}, false)
 txn.Put("orders", mdb.Cells{1: int64(11), 2: "Eve", 3: 75.00}, false)
 txn.DeleteByPK("orders", int64(2))
 
-results, err := txn.Commit(ctx, "") // atomic — all or nothing
+results, err := txn.Commit(ctx, "") // atomic - all or nothing
 if err != nil {
 	// A constraint violation rolls back every op.
 	var re *mdb.ResponseError
@@ -133,7 +133,7 @@ if err != nil {
 }
 _ = results
 
-// Idempotent commit — safe to retry; the daemon returns the original response.
+// Idempotent commit - safe to retry; the daemon returns the original response.
 txn2 := db.Begin()
 txn2.Put("orders", mdb.Cells{1: int64(20), 2: "Frank", 3: 100.00}, false)
 txn2.Commit(ctx, "order-20-create")
@@ -314,7 +314,7 @@ chmod +x bin/mongreldb-server
 Contributions are welcome. Please:
 
 1. Open an issue first for non-trivial changes.
-2. Add focused tests near your change — the suite must stay green.
+2. Add focused tests near your change - the suite must stay green.
 3. Run `gofmt -l .` and `go vet ./...` before submitting.
 4. Keep the client cgo-free and dependency-free (standard library only).
 

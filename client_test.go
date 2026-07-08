@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 			testClient = mdb.NewClient(testURL, mdb.WithToken(os.Getenv("MONGRELDB_TOKEN")))
 			os.Exit(m.Run())
 		}
-		// Asked for a specific URL but it's not up — fail loudly rather than
+		// Asked for a specific URL but it's not up - fail loudly rather than
 		// silently booting our own.
 		fmt.Fprintf(os.Stderr, "mongreldb: MONGRELDB_URL=%s is not reachable\n", existing)
 		os.Exit(1)

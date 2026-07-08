@@ -167,7 +167,7 @@ total rows: 2
 
 **Using the column name instead of the column id.** Every on-wire API uses the
 numeric `id` from `CreateTable`, never the `name`. The query builder's
-`column` alias maps to the server's `column_id` — pass the int64 id, not the
+`column` alias maps to the server's `column_id` - pass the int64 id, not the
 string name:
 
 ```go
@@ -204,8 +204,8 @@ signal; use the native query builder for typed row retrieval.
 
 ## Next steps
 
-- [transactions.md](transactions.md) — atomic batches, idempotency, retries
-- [queries.md](queries.md) — every native index condition
-- [sql.md](sql.md) — recursive CTEs, window functions, `CREATE TABLE AS SELECT`
-- [auth.md](auth.md) — bearer tokens, basic auth, user/role management
-- [errors.md](errors.md) — the full error hierarchy and recovery patterns
+- [transactions.md](transactions.md) - atomic batches, idempotency, retries
+- [queries.md](queries.md) - every native index condition
+- [sql.md](sql.md) - recursive CTEs, window functions, `CREATE TABLE AS SELECT`
+- [auth.md](auth.md) - bearer tokens, basic auth, user/role management
+- [errors.md](errors.md) - the full error hierarchy and recovery patterns

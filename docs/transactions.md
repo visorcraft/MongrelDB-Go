@@ -1,8 +1,8 @@
 # Transactions
 
 MongrelDB commits every write through a single atomic transaction endpoint
-(`POST /kit/txn`). This guide covers the two ways to use it — a one-shot
-single op, and a staged batch — plus idempotency keys for safe retries, typed
+(`POST /kit/txn`). This guide covers the two ways to use it - a one-shot
+single op, and a staged batch - plus idempotency keys for safe retries, typed
 constraint-violation handling, and rollback.
 
 The engine enforces `UNIQUE`, foreign-key, check, and trigger constraints at
@@ -53,7 +53,7 @@ fmt.Println("committed", len(results), "ops")
 ```
 
 The third argument to `Transaction.Put` is `returning`. Set it to `true` to
-have the daemon echo the written row back in the result map — useful for
+have the daemon echo the written row back in the result map - useful for
 reading server-assigned values.
 
 ```go
@@ -96,7 +96,7 @@ Rules for keys:
 
 - Any non-empty string works. Prefer content-derived, globally-unique values
   (e.g. `"charge:" + orderID`).
-- The empty string disables idempotency — a retry will commit again.
+- The empty string disables idempotency - a retry will commit again.
 - The key scopes the **entire batch**, not individual ops. Reuse the exact
   same ops and key together when retrying.
 
@@ -110,9 +110,9 @@ func commitWithRetry(ctx context.Context, txn *mdb.Transaction, key string) erro
 		case err == nil:
 			return nil
 		case errors.Is(err, mdb.ErrConflict):
-			return err // a real constraint violation — do not retry
+			return err // a real constraint violation - do not retry
 		case errors.Is(err, mdb.ErrAuth):
-			return err // caller must fix credentials — do not retry
+			return err // caller must fix credentials - do not retry
 		}
 		// Network/server error (ErrQuery). The idempotency key makes it
 		// safe to retry.
@@ -127,7 +127,7 @@ func commitWithRetry(ctx context.Context, txn *mdb.Transaction, key string) erro
 
 Note that `Commit` flips the transaction to "committed" internally. The
 helper above works because the retry only matters when `Commit` returned an
-error, in which case the transaction state is indeterminate to the caller —
+error, in which case the transaction state is indeterminate to the caller -
 build a fresh `Transaction` with the same ops and the same key, or restructure
 to rebuild inside the loop. The safest pattern is to construct the
 transaction inside the retry loop.

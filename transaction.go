@@ -82,7 +82,7 @@ func (t *Transaction) DeleteByPK(table string, pk any) *Transaction {
 func (t *Transaction) Count() int { return len(t.ops) }
 
 // Commit sends all staged operations atomically and returns the per-operation
-// results. idempotencyKey, when non-empty, makes the commit safe to retry —
+// results. idempotencyKey, when non-empty, makes the commit safe to retry -
 // the daemon returns the original response on duplicate commits.
 //
 // Returns [ErrTxnCommitted] if called twice on the same transaction.
