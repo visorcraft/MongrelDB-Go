@@ -27,9 +27,21 @@ No cgo and no external dependencies — built on the standard library `net/http`
 - **Idempotent batch transactions** — operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
 - **Full SQL access** through the DataFusion-backed `/sql` endpoint: recursive CTEs, window functions, `CREATE TABLE AS SELECT`, materialized views, and multi-statement execution.
 - **Schema management**: typed table creation, full schema catalog, and per-table descriptors.
+- **User/role/credentials management** via SQL: Argon2id-hashed catalog users, roles, and `GRANT`/`REVOKE` table-level permissions, all executed through `SQL`.
 - **Maintenance**: compaction (all tables or per-table).
 - **Pluggable transport**: bring your own `*http.Client`, or set a per-request timeout. Bearer token and HTTP Basic auth are first-class options.
 - **Typed errors**: `ErrAuth` (401/403), `ErrNotFound` (404), `ErrConflict` (409, with error code + op index), and `ErrQuery` (everything else), all exposed as `errors.Is`-matchable sentinels plus a `*ResponseError` carrying the status code and decoded server envelope.
+
+## Examples
+
+Task-focused, commented guides live in [`docs/`](docs):
+
+- [Quickstart](docs/quickstart.md) — install, start the daemon, write and run a complete program.
+- [Transactions](docs/transactions.md) — batch commits, idempotency keys, constraint handling.
+- [Queries](docs/queries.md) — every native condition type and the index it pushes down to.
+- [SQL](docs/sql.md) — recursive CTEs, window functions, advanced SQL.
+- [Authentication](docs/auth.md) — Bearer token, HTTP Basic, and open modes.
+- [Errors](docs/errors.md) — sentinel errors, `*ResponseError`, and recovery patterns.
 
 ## Quick Example
 
@@ -171,6 +183,23 @@ db.SQL(ctx, "CREATE TABLE archive AS SELECT * FROM orders WHERE amount > 500")
 // Recursive CTEs and window functions
 db.SQL(ctx, "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM r WHERE n<10) SELECT n FROM r")
 db.SQL(ctx, "SELECT id, ROW_NUMBER() OVER (PARTITION BY customer ORDER BY amount DESC) FROM orders")
+```
+
+## User & role management
+
+User, role, and permission management is performed through SQL against the
+daemon's catalog. Passwords are Argon2id-hashed server-side.
+
+```go
+db.SQL(ctx, "CREATE USER admin WITH PASSWORD 's3cret-pw'")
+db.SQL(ctx, "ALTER USER admin SET ADMIN TRUE")
+
+db.SQL(ctx, "CREATE ROLE analyst")
+db.SQL(ctx, "GRANT select ON orders TO analyst") // table-level permission
+db.SQL(ctx, "GRANT analyst TO alice")
+
+db.SQL(ctx, "SELECT username FROM catalog.users") // list users
+db.SQL(ctx, "SELECT name FROM catalog.roles")     // list roles
 ```
 
 ## Error handling
