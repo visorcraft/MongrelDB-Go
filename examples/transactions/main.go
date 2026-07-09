@@ -2,7 +2,7 @@
 //
 // Run from the repo root:
 //
-//	go run ./examples/transactions.go
+//	go run ./examples/transactions
 //
 // Requires a mongreldb-server daemon running on http://127.0.0.1:8453.
 //
@@ -17,22 +17,29 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	mdb "github.com/visorcraft/mongreldb-go"
 )
 
-const (
-	url   = "http://127.0.0.1:8453"
-	table = "example_txn"
-)
-
 func main() {
+	const url = "http://127.0.0.1:8453"
+	// Unique name per run so re-running the example never collides with a
+	// leftover table from a previous (possibly failed) run.
+	table := fmt.Sprintf("example_txn_%d", time.Now().UnixNano())
+	// Idempotency key unique per run, reused for both commits below so the
+	// duplicate commit replays the original result (no double-apply).
+	key := fmt.Sprintf("example-txn-%d", time.Now().UnixNano())
+
 	ctx := context.Background()
 	db := mdb.NewClient(url)
 
 	ok, err := db.Health(ctx)
-	if err != nil || !ok {
+	if err != nil {
 		log.Fatalf("daemon not reachable at %s: %v", url, err)
+	}
+	if !ok {
+		log.Fatalf("daemon not reachable at %s", url)
 	}
 	fmt.Println("Connected to MongrelDB")
 
@@ -45,6 +52,15 @@ func main() {
 		log.Fatalf("create table: %v", err)
 	}
 	fmt.Printf("Created table %q\n", table)
+
+	// Always drop the table on exit, even if a step below fails.
+	defer func() {
+		if err := db.DropTable(ctx, table); err != nil {
+			log.Printf("drop table: %v", err)
+		} else {
+			fmt.Printf("Dropped table %q\n", table)
+		}
+	}()
 
 	// Stage three puts and commit them atomically. Either every op lands or
 	// none do; a constraint violation rolls back the whole batch.
@@ -71,7 +87,7 @@ func main() {
 	// original result and applies no extra rows.
 	retry := db.Begin()
 	retry.Put(table, mdb.Cells{1: int64(4), 2: "Dave", 3: 60.0}, false)
-	if _, err := retry.Commit(ctx, "example-txn-key"); err != nil {
+	if _, err := retry.Commit(ctx, key); err != nil {
 		log.Fatalf("first idempotent commit: %v", err)
 	}
 	n, err = db.Count(ctx, table)
@@ -82,7 +98,7 @@ func main() {
 
 	retry2 := db.Begin()
 	retry2.Put(table, mdb.Cells{1: int64(4), 2: "Dave", 3: 60.0}, false)
-	if _, err := retry2.Commit(ctx, "example-txn-key"); err != nil {
+	if _, err := retry2.Commit(ctx, key); err != nil {
 		log.Fatalf("duplicate idempotent commit: %v", err)
 	}
 	n, err = db.Count(ctx, table)
@@ -90,9 +106,4 @@ func main() {
 		log.Fatalf("count: %v", err)
 	}
 	fmt.Printf("After duplicate idempotent commit (same key): %d rows (no double-apply)\n", n)
-
-	if err := db.DropTable(ctx, table); err != nil {
-		log.Fatalf("drop table: %v", err)
-	}
-	fmt.Printf("Dropped table %q\n", table)
 }

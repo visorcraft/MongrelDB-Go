@@ -2,7 +2,7 @@
 //
 // Run from the repo root:
 //
-//	go run ./examples/query_builder.go
+//	go run ./examples/query_builder
 //
 // Requires a mongreldb-server daemon running on http://127.0.0.1:8453.
 //
@@ -15,22 +15,26 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	mdb "github.com/visorcraft/mongreldb-go"
 )
 
-const (
-	url   = "http://127.0.0.1:8453"
-	table = "example_query"
-)
-
 func main() {
+	const url = "http://127.0.0.1:8453"
+	// Unique name per run so re-running the example never collides with a
+	// leftover table from a previous (possibly failed) run.
+	table := fmt.Sprintf("example_query_%d", time.Now().UnixNano())
+
 	ctx := context.Background()
 	db := mdb.NewClient(url)
 
 	ok, err := db.Health(ctx)
-	if err != nil || !ok {
+	if err != nil {
 		log.Fatalf("daemon not reachable at %s: %v", url, err)
+	}
+	if !ok {
+		log.Fatalf("daemon not reachable at %s", url)
 	}
 	fmt.Println("Connected to MongrelDB")
 
@@ -43,6 +47,15 @@ func main() {
 		log.Fatalf("create table: %v", err)
 	}
 	fmt.Printf("Created table %q\n", table)
+
+	// Always drop the table on exit, even if a step below fails.
+	defer func() {
+		if err := db.DropTable(ctx, table); err != nil {
+			log.Printf("drop table: %v", err)
+		} else {
+			fmt.Printf("Dropped table %q\n", table)
+		}
+	}()
 
 	// Five rows with varying scores.
 	seed := []mdb.Cells{
@@ -83,9 +96,4 @@ func main() {
 	for _, r := range pk {
 		fmt.Printf("  %v\n", r)
 	}
-
-	if err := db.DropTable(ctx, table); err != nil {
-		log.Fatalf("drop table: %v", err)
-	}
-	fmt.Printf("Dropped table %q\n", table)
 }
