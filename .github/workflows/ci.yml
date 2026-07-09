@@ -97,6 +97,13 @@ jobs:
       - name: Run live tests
         run: go test -v ./...
 
+      - name: Run examples
+        run: |
+          for ex in examples/*.go; do
+            echo "=== Running $ex ==="
+            go run "$ex" || { echo "FAILED: $ex"; exit 1; }
+          done
+
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/mongreldb-server.log
