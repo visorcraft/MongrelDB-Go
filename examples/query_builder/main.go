@@ -62,7 +62,7 @@ func main() {
 	// Range condition: scores in [60.0, 90.0]. The "column" alias maps to the
 	// server's column_id; pass the numeric column id (3), not the name.
 	rng, err := db.Query(table).
-		Where("range", map[string]any{"column": int64(3), "min": 60.0, "max": 90.0}).
+		Where("range_f64", map[string]any{"column": int64(3), "min": 60.0, "max": 90.0, "min_inclusive": true, "max_inclusive": true}).
 		Execute(ctx)
 	if err != nil {
 		log.Fatalf("range query: %v", err)
