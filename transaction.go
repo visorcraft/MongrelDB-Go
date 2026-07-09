@@ -90,11 +90,19 @@ func (t *Transaction) Commit(ctx context.Context, idempotencyKey string) ([]map[
 	if t.committed {
 		return nil, ErrTxnCommitted
 	}
-	t.committed = true
 	if len(t.ops) == 0 {
+		t.committed = true
 		return []map[string]any{}, nil
 	}
-	return t.client.CommitTxn(ctx, t.ops, idempotencyKey)
+	// Send first, mark committed only after the server confirms. This keeps
+	// the transaction retryable (with an idempotency key) if the network call
+	// fails or times out.
+	results, err := t.client.CommitTxn(ctx, t.ops, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	t.committed = true
+	return results, nil
 }
 
 // Rollback discards all staged operations. Returns [ErrTxnCommitted] if the

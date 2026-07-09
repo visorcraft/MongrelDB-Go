@@ -69,9 +69,13 @@ func WithBasicAuth(username, password string) Option {
 }
 
 // WithHTTPClient installs a custom *http.Client (e.g. with a custom transport).
-// Overrides [WithTimeout].
+// Overrides [WithTimeout]. Passing nil is a no-op (keeps the default client).
 func WithHTTPClient(h *http.Client) Option {
-	return func(c *Client) { c.http = h }
+	return func(c *Client) {
+		if h != nil {
+			c.http = h
+		}
+	}
 }
 
 // WithTimeout sets the per-request timeout by configuring the underlying
@@ -107,10 +111,18 @@ func (c *Client) BaseURL() string { return c.baseURL }
 
 // ── Health & tables ────────────────────────────────────────────────────────
 
-// Health reports whether the daemon is reachable and healthy.
+// Health reports whether the daemon is reachable and healthy. A network
+// failure returns (false, nil) so callers can treat "unhealthy" uniformly;
+// context cancellation still propagates as an error.
 func (c *Client) Health(ctx context.Context) (bool, error) {
 	_, err := c.get(ctx, "/health")
-	return err == nil, nil
+	if err == nil {
+		return true, nil
+	}
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	return false, nil
 }
 
 // TableNames lists all table names in the database.
@@ -490,10 +502,9 @@ func urlPathEscape(seg string) string {
 		if r < 128 {
 			c = byte(r)
 		}
-		// Leave unreserved characters and the path separator intact.
+		// Leave only unreserved characters (RFC 3986) intact. The forward
+		// slash is encoded so a table name cannot inject an extra path segment.
 		switch {
-		case r == '/':
-			b.WriteByte('/')
 		case 'A' <= c && c <= 'Z', 'a' <= c && c <= 'z', '0' <= c && c <= '9', c == '-', c == '_', c == '.', c == '~':
 			b.WriteByte(c)
 		default:
