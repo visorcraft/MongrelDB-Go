@@ -2,7 +2,6 @@ package mongreldb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 )
 
@@ -94,7 +93,7 @@ func (q *QueryBuilder) Execute(ctx context.Context) ([]map[string]any, error) {
 		Truncated bool             `json:"truncated"`
 	}
 	if len(body) > 0 {
-		if err := json.Unmarshal(body, &resp); err != nil {
+		if err := decodeJSON(body, &resp); err != nil {
 			return nil, fmt.Errorf("mongreldb: decode query response: %w", err)
 		}
 	}

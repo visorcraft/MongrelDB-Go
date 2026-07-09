@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -263,6 +264,10 @@ func TestQueryByPK(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("expected exactly 1 row, got %d", len(rows))
 	}
+	// The returned row must carry the queried PK value.
+	if got := cellInt64(t, rows[0], 1); got != 42 {
+		t.Fatalf("expected pk 42, got %v", got)
+	}
 }
 
 func TestQueryRange(t *testing.T) {
@@ -287,11 +292,22 @@ func TestQueryRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query range: %v", err)
 	}
-	if len(rows) < 1 {
-		t.Fatalf("range query should return at least 1 row, got %d", len(rows))
+	// Only the row with amount=120 (pk=2) falls in [100, 150].
+	if len(rows) != 1 {
+		t.Fatalf("range query should return exactly the matching row, got %d", len(rows))
 	}
 	if q.Truncated() {
 		t.Fatal("result should not be truncated")
+	}
+	// Verify the PK and amount values of returned rows match the filter range.
+	for _, r := range rows {
+		if got := cellInt64(t, r, 1); got != 2 {
+			t.Fatalf("expected returned pk 2, got %v", got)
+		}
+		amt := cellInt64(t, r, 2)
+		if amt < 100 || amt > 150 {
+			t.Fatalf("returned amount %d outside range [100,150]", amt)
+		}
 	}
 }
 
@@ -344,14 +360,62 @@ func TestDeleteByPK(t *testing.T) {
 	}
 }
 
+func TestUpsertUpdatesCellVisibleOnPKQuery(t *testing.T) {
+	skipIfNoClient(t)
+	ctx := context.Background()
+
+	name := uniqueTable("go_upsert")
+	freshTable(t, ctx, name, intCol(1, "id", true), floatCol(2, "amount"))
+
+	// Initial insert, then update the amount cell on conflict.
+	if _, err := testClient.Upsert(ctx, name, mdb.Cells{1: int64(7), 2: 10.0}, mdb.Cells{2: 10.0}, ""); err != nil {
+		t.Fatalf("Upsert insert: %v", err)
+	}
+	if _, err := testClient.Upsert(ctx, name, mdb.Cells{1: int64(7), 2: 99.5}, mdb.Cells{2: 99.5}, ""); err != nil {
+		t.Fatalf("Upsert update: %v", err)
+	}
+
+	rows, err := testClient.Query(name).
+		Where("pk", map[string]any{"value": int64(7)}).
+		Execute(ctx)
+	if err != nil {
+		t.Fatalf("query pk after upsert: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected exactly 1 row, got %d", len(rows))
+	}
+	if got := cellInt64(t, rows[0], 1); got != 7 {
+		t.Fatalf("expected pk 7, got %v", got)
+	}
+	if got := cellFloat64(t, rows[0], 2); got != 99.5 {
+		t.Fatalf("expected updated amount 99.5, got %v", got)
+	}
+}
+
 func TestSQL(t *testing.T) {
 	skipIfNoClient(t)
 	ctx := context.Background()
 
-	// SELECT 1 yields no JSON rows (the daemon streams Arrow IPC), so we just
-	// assert it runs without error.
-	if _, err := testClient.SQL(ctx, "SELECT 1"); err != nil {
-		t.Fatalf("SQL SELECT 1: %v", err)
+	name := uniqueTable("go_sql")
+	freshTable(t, ctx, name, intCol(1, "id", true), intCol(2, "amount", false))
+
+	if n, _ := testClient.Count(ctx, name); n != 0 {
+		t.Fatalf("expected 0 rows, got %d", n)
+	}
+	// INSERT via SQL must increase the row count.
+	if _, err := testClient.SQL(ctx, "INSERT INTO "+name+" (id, amount) VALUES (10, 42)"); err != nil {
+		t.Fatalf("SQL INSERT: %v", err)
+	}
+	if n, _ := testClient.Count(ctx, name); n != 1 {
+		t.Fatalf("expected count to increase to 1, got %d", n)
+	}
+	// JSON SQL mode must return the inserted row.
+	rows, err := testClient.SQL(ctx, "SELECT id, amount FROM "+name)
+	if err != nil {
+		t.Fatalf("SQL SELECT: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row from JSON SELECT, got %d", len(rows))
 	}
 }
 
@@ -484,4 +548,66 @@ func mustPut(t *testing.T, ctx context.Context, table string, cells mdb.Cells) {
 	if _, err := testClient.Put(ctx, table, cells, ""); err != nil {
 		t.Fatalf("Put %s: %v", table, err)
 	}
+}
+
+// cellInt64 extracts an int64 value for colID from a Kit row's flat cells
+// array (shape: [col_id, value, ...]). JSON values may arrive as json.Number.
+func cellInt64(t *testing.T, row map[string]any, colID int64) int64 {
+	t.Helper()
+	v := cellValue(row, colID)
+	n, err := toInt64(v)
+	if err != nil {
+		t.Fatalf("cell %d not an int64: %v (%T)", colID, v, v)
+	}
+	return n
+}
+
+// cellFloat64 extracts a float64 value for colID from a Kit row's flat cells
+// array (shape: [col_id, value, ...]).
+func cellFloat64(t *testing.T, row map[string]any, colID int64) float64 {
+	t.Helper()
+	v := cellValue(row, colID)
+	switch x := v.(type) {
+	case float64:
+		return x
+	case float32:
+		return float64(x)
+	case json.Number:
+		f, err := x.Float64()
+		if err != nil {
+			t.Fatalf("cell %d not a float64: %v (%T)", colID, v, v)
+		}
+		return f
+	}
+	t.Fatalf("cell %d not a float64: %v (%T)", colID, v, v)
+	return 0
+}
+
+// cellValue looks up a column value in the flat cells array of a Kit row.
+func cellValue(row map[string]any, colID int64) any {
+	cells, ok := row["cells"].([]any)
+	if !ok {
+		return nil
+	}
+	for i := 0; i+1 < len(cells); i += 2 {
+		if id, err := toInt64(cells[i]); err == nil && id == colID {
+			return cells[i+1]
+		}
+	}
+	return nil
+}
+
+// toInt64 coerces a JSON-decoded numeric value to int64.
+func toInt64(v any) (int64, error) {
+	switch x := v.(type) {
+	case int64:
+		return x, nil
+	case int:
+		return int64(x), nil
+	case float64:
+		return int64(x), nil
+	case json.Number:
+		return x.Int64()
+	}
+	return 0, fmt.Errorf("not numeric: %T", v)
 }

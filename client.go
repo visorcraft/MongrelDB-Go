@@ -29,6 +29,11 @@ import (
 // DefaultBaseURL is the daemon address used when none is supplied.
 const DefaultBaseURL = "http://127.0.0.1:8453"
 
+// MaxResponseBytes caps the size of a response body read from the daemon
+// (256 MB). Bodies larger than this are aborted with a wrapped [ErrQuery] to
+// guard client memory against a malicious or buggy server.
+const MaxResponseBytes int64 = 268435456
+
 // Cells is a column-id-to-value map. The client flattens it to the server's
 // on-wire [col_id, value, col_id, value, ...] array before sending. Pair order
 // is irrelevant - each value is preceded by its own column id.
@@ -267,12 +272,16 @@ func (c *Client) Query(table string) *QueryBuilder {
 
 // ── SQL ────────────────────────────────────────────────────────────────────
 
-// SQL executes a SQL statement via the /sql endpoint. When the daemon returns
-// a JSON result set, the rows are decoded and returned; for statements that
-// yield no rows (DDL/DML) or a non-JSON (Arrow IPC) body, it returns an empty
-// slice and a nil error.
+// SQL executes a SQL statement via the /sql endpoint, requesting JSON output.
+// The server returns a JSON array of row objects keyed by column name, e.g.
+// [{"id": 1, "name": "Alice", "score": 95.5}]. For statements that yield no
+// rows (DDL/DML), the body is empty and an empty slice is returned.
+//
+// Integers in each row are decoded as json.Number (not float64) via
+// [encoding/json.Decoder.UseNumber], preserving precision for large table ids
+// or counts that would otherwise lose accuracy in a float64.
 func (c *Client) SQL(ctx context.Context, sql string) ([]map[string]any, error) {
-	body, err := c.post(ctx, "/sql", map[string]any{"sql": sql})
+	body, err := c.post(ctx, "/sql", map[string]any{"sql": sql, "format": "json"})
 	if err != nil {
 		return nil, err
 	}
@@ -280,18 +289,15 @@ func (c *Client) SQL(ctx context.Context, sql string) ([]map[string]any, error) 
 	if len(trimmed) == 0 {
 		return []map[string]any{}, nil
 	}
-	// The /sql endpoint generally streams Arrow IPC bytes for SELECTs; only
-	// decode when the body is actually JSON to avoid noise.
-	if trimmed[0] == '{' || trimmed[0] == '[' {
-		var rows []map[string]any
-		if err := json.Unmarshal(body, &rows); err == nil {
-			return rows, nil
-		}
-		// A single JSON object (e.g. an error envelope) is not a row set.
-		var obj map[string]any
-		if err := json.Unmarshal(body, &obj); err == nil {
-			return []map[string]any{}, nil
-		}
+	// Requested format is JSON; decode with UseNumber so integers stay exact.
+	var rows []map[string]any
+	if err := decodeJSON(body, &rows); err == nil {
+		return rows, nil
+	}
+	// A single JSON object (e.g. an error envelope) is not a row set.
+	var obj map[string]any
+	if err := decodeJSON(body, &obj); err == nil {
+		return []map[string]any{}, nil
 	}
 	return []map[string]any{}, nil
 }
@@ -308,7 +314,7 @@ func (c *Client) Schema(ctx context.Context) (map[string]map[string]any, error) 
 		Tables map[string]map[string]any `json:"tables"`
 	}
 	if len(body) > 0 {
-		if err := json.Unmarshal(body, &resp); err != nil {
+		if err := decodeJSON(body, &resp); err != nil {
 			return nil, fmt.Errorf("mongreldb: decode schema response: %w", err)
 		}
 	}
@@ -326,7 +332,7 @@ func (c *Client) SchemaFor(ctx context.Context, table string) (map[string]any, e
 	}
 	var desc map[string]any
 	if len(body) > 0 {
-		if err := json.Unmarshal(body, &desc); err != nil {
+		if err := decodeJSON(body, &desc); err != nil {
 			return nil, fmt.Errorf("mongreldb: decode schema-for response: %w", err)
 		}
 	}
@@ -356,7 +362,7 @@ func (c *Client) postDecode(ctx context.Context, path string) (map[string]any, e
 	}
 	var out map[string]any
 	if len(body) > 0 {
-		if err := json.Unmarshal(body, &out); err != nil {
+		if err := decodeJSON(body, &out); err != nil {
 			return nil, fmt.Errorf("mongreldb: decode response: %w", err)
 		}
 	}
@@ -415,9 +421,14 @@ func (c *Client) do(ctx context.Context, method, path string, body any) ([]byte,
 	}
 	defer resp.Body.Close()
 
-	data, readErr := io.ReadAll(resp.Body)
+	// Cap the download: read at most MaxResponseBytes+1 so an oversized body
+	// can be detected without buffering an unbounded amount.
+	data, readErr := io.ReadAll(io.LimitReader(resp.Body, MaxResponseBytes+1))
 	if readErr != nil {
 		return nil, fmt.Errorf("mongreldb: read response: %w", readErr)
+	}
+	if int64(len(data)) > MaxResponseBytes {
+		return nil, fmt.Errorf("mongreldb: response body exceeds %d bytes: %w", MaxResponseBytes, ErrQuery)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -467,6 +478,16 @@ func flattenCells(cells Cells) []any {
 	return flat
 }
 
+// decodeJSON decodes body into target using a [json.Decoder] with UseNumber
+// enabled, so integer values (table ids, counts, row ids) stay exact instead
+// of degrading into float64. Numbers read back are [json.Number] (a string);
+// callers needing a concrete int should coerce explicitly.
+func decodeJSON(body []byte, target any) error {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	return dec.Decode(target)
+}
+
 // decodeResults pulls the results array out of a /kit/txn response.
 func decodeResults(body []byte) ([]map[string]any, error) {
 	if len(bytes.TrimSpace(body)) == 0 {
@@ -475,7 +496,7 @@ func decodeResults(body []byte) ([]map[string]any, error) {
 	var resp struct {
 		Results []map[string]any `json:"results"`
 	}
-	if err := json.Unmarshal(body, &resp); err != nil {
+	if err := decodeJSON(body, &resp); err != nil {
 		return nil, fmt.Errorf("mongreldb: decode txn response: %w", err)
 	}
 	if resp.Results == nil {
