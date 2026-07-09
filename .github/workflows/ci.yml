@@ -99,9 +99,9 @@ jobs:
 
       - name: Run examples
         run: |
-          for ex in examples/*.go; do
-            echo "=== Running $ex ==="
-            go run "$ex" || { echo "FAILED: $ex"; exit 1; }
+          for dir in examples/*/; do
+            echo "=== Running $dir ==="
+            go run "./$dir" || { echo "FAILED: $dir"; exit 1; }
           done
 
       - name: Dump server log on failure
