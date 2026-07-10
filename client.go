@@ -39,10 +39,21 @@ const MaxResponseBytes int64 = 268435456
 // is irrelevant - each value is preceded by its own column id.
 type Cells map[int64]any
 
-// Column describes one column in a CREATE TABLE request. It is sent to the
-// server verbatim; the recognized keys are id, name, ty, primary_key, and
-// nullable, matching the daemon's table-create extractor.
-type Column = map[string]any
+// Column describes one column in a CREATE TABLE request. The struct is sent
+// to the server verbatim; the JSON tags mirror the daemon's table-create
+// extractor (id, name, ty, primary_key, nullable). The two optional fields
+// EnumVariants and DefaultValue are emitted only when set (zero-value for
+// EnumVariants, nil for DefaultValue), thanks to the `omitempty` JSON tags —
+// existing callers that don't need them pay no wire-cost.
+type Column struct {
+	ID           int64    `json:"id"`
+	Name         string   `json:"name"`
+	Type         string   `json:"ty"`
+	PrimaryKey   bool     `json:"primary_key"`
+	Nullable     bool     `json:"nullable"`
+	EnumVariants []string `json:"enum_variants,omitempty"`
+	DefaultValue *string  `json:"default_value,omitempty"`
+}
 
 // Client is the MongrelDB HTTP client. Create one with [NewClient] and use its
 // methods for health, table management, CRUD, query, SQL, and schema. A Client

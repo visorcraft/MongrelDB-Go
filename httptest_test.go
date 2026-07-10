@@ -8,10 +8,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	mdb "github.com/visorcraft/mongreldb-go"
 )
+
+// stringPtr is a tiny helper for tests that need to populate a *string field
+// without writing `&"value"` inline.
+func stringPtr(s string) *string { return &s }
 
 // recordingServer is a minimal in-process HTTP server used by the
 // config/transport tests (those that don't need a real daemon). It captures the
@@ -175,5 +180,86 @@ func TestQueryBuilderAliasNormalization(t *testing.T) {
 	}
 	if len(rows) != 1 {
 		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+}
+
+// TestCreateTableWireShapeForColumnSpec confirms that the typed Column struct
+// emits the new optional fields (enum_variants, default_value) verbatim into
+// the outgoing /kit/create_table JSON body. The daemon's table-create
+// extractor uses snake_case keys; this test guards against silent tag drift
+// or accidental omitempty regressions in either field.
+func TestCreateTableWireShapeForColumnSpec(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"table_id":1}`))
+	}))
+	defer srv.Close()
+
+	c := mdb.NewClient(srv.URL)
+	cols := []mdb.Column{
+		{
+			ID:           5,
+			Name:         "status",
+			Type:         "text",
+			EnumVariants: []string{"a", "b", "c"},
+			DefaultValue: stringPtr("a"),
+		},
+	}
+	if _, err := c.CreateTable(context.Background(), "shape_probe", cols); err != nil {
+		t.Fatalf("CreateTable: %v", err)
+	}
+
+	body := string(rawBody)
+	for _, want := range []string{
+		`"enum_variants":["a","b","c"]`,
+		`"default_value":"a"`,
+		`"name":"status"`,
+		`"ty":"text"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("request body missing %q; got %s", want, body)
+		}
+	}
+}
+
+// TestCreateTableColumnOmitsOptionalFieldsWhenUnset confirms that the
+// `omitempty` JSON tags on EnumVariants and DefaultValue correctly suppress
+// those keys when the caller doesn't set them — so the wire shape stays
+// minimal for the common (no-enum, no-default) case.
+func TestCreateTableColumnOmitsOptionalFieldsWhenUnset(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"table_id":1}`))
+	}))
+	defer srv.Close()
+
+	c := mdb.NewClient(srv.URL)
+	cols := []mdb.Column{
+		{ID: 1, Name: "id", Type: "int64", PrimaryKey: true, Nullable: false},
+	}
+	if _, err := c.CreateTable(context.Background(), "shape_probe_min", cols); err != nil {
+		t.Fatalf("CreateTable: %v", err)
+	}
+
+	body := string(rawBody)
+	for _, banned := range []string{
+		`"enum_variants"`,
+		`"default_value"`,
+	} {
+		if strings.Contains(body, banned) {
+			t.Errorf("request body unexpectedly contains %q; got %s", banned, body)
+		}
+	}
+	// Sanity: the canonical keys must still be present.
+	for _, want := range []string{`"id":1`, `"name":"id"`, `"ty":"int64"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("request body missing %q; got %s", want, body)
+		}
 	}
 }

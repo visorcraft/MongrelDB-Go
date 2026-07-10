@@ -97,9 +97,9 @@ func main() {
 	// 3. Create a table. Each column has a stable numeric id, a name, a type,
 	//    and flags. The first column is the primary key.
 	tid, err := db.CreateTable(ctx, "orders", []mdb.Column{
-		{"id": int64(1), "name": "id", "ty": "int64", "primary_key": true, "nullable": false},
-		{"id": int64(2), "name": "customer", "ty": "varchar", "primary_key": false, "nullable": false},
-		{"id": int64(3), "name": "amount", "ty": "float64", "primary_key": false, "nullable": false},
+		{ID: 1, Name: "id", Type: "int64", PrimaryKey: true, Nullable: false},
+		{ID: 2, Name: "customer", Type: "varchar", PrimaryKey: false, Nullable: false},
+		{ID: 3, Name: "amount", Type: "float64", PrimaryKey: false, Nullable: false},
 	})
 	if err != nil {
 		log.Fatalf("create table: %v", err)

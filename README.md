@@ -72,9 +72,9 @@ func main() {
 
 	// Create a table. Column ids are stable on-wire identifiers.
 	db.CreateTable(ctx, "orders", []mdb.Column{
-		{"id": 1, "name": "id", "ty": "int64", "primary_key": true, "nullable": false},
-		{"id": 2, "name": "customer", "ty": "varchar", "primary_key": false, "nullable": false},
-		{"id": 3, "name": "amount", "ty": "float64", "primary_key": false, "nullable": false},
+		{ID: 1, Name: "id", Type: "int64", PrimaryKey: true, Nullable: false},
+		{ID: 2, Name: "customer", Type: "varchar", PrimaryKey: false, Nullable: false},
+		{ID: 3, Name: "amount", Type: "float64", PrimaryKey: false, Nullable: false},
 	})
 
 	// Insert rows (cells map column id -> value).

@@ -176,16 +176,16 @@ func uniqueTable(prefix string) string {
 // intCol returns a column descriptor for a typed int64 column.
 func intCol(id int64, name string, primaryKey bool) mdb.Column {
 	return mdb.Column{
-		"id": id, "name": name, "ty": "int64",
-		"primary_key": primaryKey, "nullable": false,
+		ID: id, Name: name, Type: "int64",
+		PrimaryKey: primaryKey, Nullable: false,
 	}
 }
 
 // floatCol returns a column descriptor for a typed float64 column.
 func floatCol(id int64, name string) mdb.Column {
 	return mdb.Column{
-		"id": id, "name": name, "ty": "float64",
-		"primary_key": false, "nullable": false,
+		ID: id, Name: name, Type: "float64",
+		PrimaryKey: false, Nullable: false,
 	}
 }
 

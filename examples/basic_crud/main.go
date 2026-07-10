@@ -45,9 +45,9 @@ func main() {
 	// Create the table. Column ids are stable on-wire identifiers used
 	// everywhere else. Schema: id (int64 PK), name (varchar), score (float64).
 	cols := []mdb.Column{
-		{"id": int64(1), "name": "id", "ty": "int64", "primary_key": true, "nullable": false},
-		{"id": int64(2), "name": "name", "ty": "varchar", "primary_key": false, "nullable": false},
-		{"id": int64(3), "name": "score", "ty": "float64", "primary_key": false, "nullable": false},
+		{ID: 1, Name: "id", Type: "int64", PrimaryKey: true, Nullable: false},
+		{ID: 2, Name: "name", Type: "varchar", PrimaryKey: false, Nullable: false},
+		{ID: 3, Name: "score", Type: "float64", PrimaryKey: false, Nullable: false},
 	}
 	tid, err := db.CreateTable(ctx, table, cols)
 	if err != nil {
