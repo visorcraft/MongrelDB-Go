@@ -15,18 +15,16 @@ native query builder.
 
 ## How `SQL` behaves
 
-`Client.SQL(ctx, sql)` sends `{"sql": "..."}` to `/sql`. It returns the
-decoded rows when the daemon replies with a JSON result set, and an empty
-slice with a nil error otherwise.
+`Client.SQL(ctx, sql)` sends `{"sql": "...", "format": "json"}` to `/sql`. The
+client requests the JSON result format, so it returns the decoded rows when the
+statement produces a result set, and an empty slice with a nil error otherwise.
 
 In practice:
 
 - **DDL and DML** (`CREATE TABLE`, `INSERT`, `UPDATE`, `DELETE`) reply with a
   non-JSON status body. `SQL` returns `[]`, nil - success is the signal.
-- **`SELECT`** in most daemon builds streams Arrow IPC bytes rather than JSON.
-  `SQL` therefore returns `[]`, nil for SELECTs too. Use the native
-  `QueryBuilder` for typed row retrieval in application code, and use `SQL`
-  for statements whose execution is the goal (DDL/DML/admin).
+- **`SELECT`** returns a JSON array of row objects (keyed by column name), which
+  `SQL` decodes into `[]map[string]any`. An empty result set returns `[]`, nil.
 
 Errors are mapped to the same typed sentinels as everything else: an HTTP 400
 or 5xx wraps `mdb.ErrQuery`; 409 wraps `mdb.ErrConflict`; and so on. See
@@ -84,13 +82,12 @@ db.SQL(ctx, "DELETE FROM products WHERE id = 2")
 ## SELECT
 
 ```go
-db.SQL(ctx, "SELECT id, name FROM products WHERE category = 'tools' ORDER BY price")
+rows, err := db.SQL(ctx, "SELECT id, name FROM products WHERE category = 'tools' ORDER BY price")
 db.SQL(ctx, "SELECT category, COUNT(*) AS n FROM products GROUP BY category")
 ```
 
-Remember SELECT bodies usually arrive as Arrow IPC, so `SQL` returns an empty
-slice. To read rows back into Go maps, mirror the same lookup with the
-`QueryBuilder`.
+`SQL` requests `format: "json"`, so a SELECT returns its rows decoded into a
+`[]map[string]any`. Access columns by name, e.g. `row["price"]`.
 
 ## CREATE TABLE AS SELECT
 
@@ -183,7 +180,7 @@ Rules of thumb:
 - Building/dropping tables, or running a `CREATE TABLE AS SELECT`? Use SQL.
 - Joining multiple tables, computing rankings, or walking a graph? Use SQL.
 - Filtering by one or more indexed columns? Use the query builder - it is
-  faster and avoids Arrow-to-Go decoding.
+  faster and avoids SQL parsing/decoding overhead.
 
 Mix freely: create tables with SQL, write rows with `Client.Put`, read them
 back with `QueryBuilder`, and run analytics with SQL.

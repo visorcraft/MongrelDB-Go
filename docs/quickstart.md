@@ -193,10 +193,10 @@ work.
 reflects the most recent `Execute`. Build a new query, or re-run `Execute`
 before reading it.
 
-**Expecting `SQL` to always return rows.** The `/sql` endpoint streams Arrow
-IPC for `SELECT` in most builds, so `SQL` returns an empty slice (not an
-error) for result sets. Use it for DDL/DML and statements whose success is the
-signal; use the native query builder for typed row retrieval.
+**Expecting `SQL` to return non-nil rows.** `SQL` requests
+`format: "json"`, so a `SELECT` returns its rows decoded into a
+`[]map[string]any`. Statements that produce no rows (DDL/DML, or an empty
+result set) return an empty slice (not an error).
 
 **Pointing at a daemon that requires auth.** If the daemon was started with
 `--auth-token` or `--auth-users`, every call 401s unless you pass
