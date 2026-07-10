@@ -514,7 +514,8 @@ func firstResult(results []map[string]any) map[string]any {
 }
 
 // urlPathEscape percent-escapes a path segment (used for table names that may
-// contain characters unsafe in a URL). It does not escape the forward slash.
+// contain characters unsafe in a URL). The forward slash IS escaped, so a
+// table name cannot inject an extra path segment.
 func urlPathEscape(seg string) string {
 	const hex = "0123456789ABCDEF"
 	var b strings.Builder
