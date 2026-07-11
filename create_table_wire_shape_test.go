@@ -88,7 +88,9 @@ func TestCreateTableWireShape(t *testing.T) {
 		t.Errorf("request body missing default_expr; got %s", body)
 	}
 	for _, want := range []string{`"default_value":"draft"`, `"default_value":true`, `"default_value":null`} {
-		if !strings.Contains(body, want) { t.Errorf("request body missing %s; got %s", want, body) }
+		if !strings.Contains(body, want) {
+			t.Errorf("request body missing %s; got %s", want, body)
+		}
 	}
 	var payload struct {
 		Columns []map[string]any `json:"columns"`

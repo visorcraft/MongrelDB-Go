@@ -190,17 +190,23 @@ func (c *Client) HistoryRetention(ctx context.Context) (HistoryRetention, error)
 }
 
 func (c *Client) HistoryRetentionEpochs(ctx context.Context) (uint64, error) {
-	r, err := c.HistoryRetention(ctx); return r.HistoryRetentionEpochs, err
+	r, err := c.HistoryRetention(ctx)
+	return r.HistoryRetentionEpochs, err
 }
 
 func (c *Client) EarliestRetainedEpoch(ctx context.Context) (uint64, error) {
-	r, err := c.HistoryRetention(ctx); return r.EarliestRetainedEpoch, err
+	r, err := c.HistoryRetention(ctx)
+	return r.EarliestRetainedEpoch, err
 }
 
 func decodeHistoryRetention(body []byte, err error) (HistoryRetention, error) {
 	var r HistoryRetention
-	if err != nil { return r, err }
-	if err := json.Unmarshal(body, &r); err != nil { return r, fmt.Errorf("mongreldb: decode history retention: %w", err) }
+	if err != nil {
+		return r, err
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return r, fmt.Errorf("mongreldb: decode history retention: %w", err)
+	}
 	return r, nil
 }
 
@@ -453,7 +459,6 @@ func (c *Client) post(ctx context.Context, path string, body any) ([]byte, error
 
 func (c *Client) put(ctx context.Context, path string, body any) ([]byte, error) {
 	return c.do(ctx, http.MethodPut, path, body)
-}
 }
 
 // delete performs a DELETE.
