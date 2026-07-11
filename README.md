@@ -122,7 +122,15 @@ db := mdb.NewClient("http://127.0.0.1:8453",
 ## Batch transactions
 
 Operations are staged locally and committed atomically. The engine enforces
-unique, foreign-key, and check constraints at commit time.
+unique, foreign-key, and check constraints at commit time. Pass an optional
+constraints map to `CreateTable` to provision engine checks in the same call.
+
+```go
+checks := map[string]any{"checks": []any{
+	map[string]any{"id": 1, "name": "id_present", "expr": map[string]any{"IsNotNull": 1}},
+}}
+_, err := db.CreateTable(ctx, "orders", cols, checks)
+```
 
 ```go
 txn := db.Begin()
@@ -248,7 +256,7 @@ if errors.As(err, &re) {
 | `WithToken`, `WithBasicAuth`, `WithHTTPClient`, `WithTimeout` | Options: Bearer token, Basic auth, custom `*http.Client`, request timeout |
 | `Health(ctx) (bool, error)` | Check daemon health |
 | `TableNames(ctx) ([]string, error)` | List table names |
-| `CreateTable(ctx, name, columns) (int64, error)` | Create a table; returns the table id |
+| `CreateTable(ctx, name, columns, constraints...) (int64, error)` | Create a table, optionally attach engine constraints; returns the table id |
 | `DropTable(ctx, name) error` | Drop a table |
 | `Count(ctx, table) (int64, error)` | Row count |
 | `Put(ctx, table, cells, idempotencyKey) (map[string]any, error)` | Insert a row |

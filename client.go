@@ -159,12 +159,20 @@ func (c *Client) TableNames(ctx context.Context) ([]string, error) {
 }
 
 // CreateTable creates a table named name with the given columns and returns
-// the assigned table id.
-func (c *Client) CreateTable(ctx context.Context, name string, columns []Column) (int64, error) {
-	body, err := c.post(ctx, "/kit/create_table", map[string]any{
+// the assigned table id. Pass at most one constraints map to attach engine
+// constraints such as {"checks": [...]}.
+func (c *Client) CreateTable(ctx context.Context, name string, columns []Column, constraints ...map[string]any) (int64, error) {
+	if len(constraints) > 1 {
+		return 0, fmt.Errorf("mongreldb: CreateTable accepts at most one constraints map")
+	}
+	payload := map[string]any{
 		"name":    name,
 		"columns": columns,
-	})
+	}
+	if len(constraints) == 1 && constraints[0] != nil {
+		payload["constraints"] = constraints[0]
+	}
+	body, err := c.post(ctx, "/kit/create_table", payload)
 	if err != nil {
 		return 0, err
 	}

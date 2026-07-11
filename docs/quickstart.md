@@ -155,7 +155,7 @@ total rows: 2
 |------|--------------|
 | `mdb.NewClient(url)` | Builds an HTTP client targeting one daemon. Safe to share across goroutines. |
 | `db.Health(ctx)` | GET `/health`; returns `true` when the daemon answers. Always check before real work. |
-| `db.CreateTable(ctx, name, cols)` | POST `/kit/create_table`. Column `id`s are the on-wire identifiers; use them everywhere else. |
+| `db.CreateTable(ctx, name, cols, constraints...)` | POST `/kit/create_table`; optional constraints map carries engine checks. Column `id`s are the on-wire identifiers; use them everywhere else. |
 | `db.Put(ctx, table, cells, key)` | Single-op transaction: POST `/kit/txn` with one `put` op. `cells` is flattened to `[col_id, val, ...]`. |
 | `db.Query(table).Where(...)` | Builds a `/kit/query` body. `Where` pushes a condition down to a native index. |
 | `.Projection([]int64{1,2})` | Server returns only those column ids, saving bandwidth. |

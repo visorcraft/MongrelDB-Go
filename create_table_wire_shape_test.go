@@ -44,12 +44,20 @@ func TestCreateTableWireShape(t *testing.T) {
 		{
 			ID:           2,
 			Name:         "status",
-			Type:         "text",
+			Type:         "enum",
 			EnumVariants: []string{"active", "inactive", "paused"},
-			DefaultValue: stringPtr("active"),
+		},
+		{
+			ID:           3,
+			Name:         "created_at",
+			Type:         "timestamp_nanos",
+			DefaultValue: stringPtr("now"),
 		},
 	}
-	if _, err := c.CreateTable(context.Background(), "wire_shape_probe", cols); err != nil {
+	constraints := map[string]any{"checks": []any{map[string]any{
+		"id": 1, "name": "id_present", "expr": map[string]any{"IsNotNull": 1},
+	}}}
+	if _, err := c.CreateTable(context.Background(), "wire_shape_probe", cols, constraints); err != nil {
 		t.Fatalf("CreateTable: %v", err)
 	}
 
@@ -61,8 +69,13 @@ func TestCreateTableWireShape(t *testing.T) {
 		t.Errorf("request body missing enum_variants array; got %s", body)
 	}
 	// Required: default_value is a plain JSON string (not a number, not null).
-	if !strings.Contains(body, `"default_value":"active"`) {
+	if !strings.Contains(body, `"default_value":"now"`) {
 		t.Errorf("request body missing default_value string; got %s", body)
+	}
+	if !strings.Contains(body, `"constraints":{"checks":[`) ||
+		!strings.Contains(body, `"name":"id_present"`) ||
+		!strings.Contains(body, `"IsNotNull":1`) {
+		t.Errorf("request body missing constraints.checks; got %s", body)
 	}
 
 	// Omitempty sanity: the id column sets neither field, so those keys must
