@@ -58,7 +58,10 @@ type Column struct {
 
 func (c Column) MarshalJSON() ([]byte, error) {
 	type wire Column
-	value := any(c.DefaultValue)
+	var value any
+	if c.DefaultValue != nil {
+		value = *c.DefaultValue
+	}
 	if c.DefaultValueJSON != nil {
 		value = c.DefaultValueJSON
 	}

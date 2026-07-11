@@ -22,7 +22,7 @@ import (
 )
 
 // stringPtr returns a pointer to s; lets tests populate *string fields inline.
-func stringPtr(s string) *string { return &s }
+func wireStringPtr(s string) *string { return &s }
 
 // TestCreateTableWireShape captures the /kit/create_table POST body and
 // asserts the exact on-wire fragments for enum_variants and default_value,
@@ -49,19 +49,19 @@ func TestCreateTableWireShape(t *testing.T) {
 			EnumVariants: []string{"active", "inactive", "paused"},
 		},
 		{
-			ID:           3,
-			Name:         "created_at",
-			Type:         "timestamp_nanos",
-			DefaultValue:     stringPtr("legacy"),
+			ID:               3,
+			Name:             "created_at",
+			Type:             "timestamp_nanos",
+			DefaultValue:     wireStringPtr("legacy"),
 			DefaultValueJSON: 3,
 		},
 		{
 			ID:               4,
 			Name:             "updated_at",
 			Type:             "timestamp_nanos",
-			DefaultValue:     stringPtr("legacy"),
+			DefaultValue:     wireStringPtr("legacy"),
 			DefaultValueJSON: 4,
-			DefaultExpr:      stringPtr("now"),
+			DefaultExpr:      wireStringPtr("now"),
 		},
 		{ID: 5, Name: "s", Type: "varchar", DefaultValueJSON: "draft"},
 		{ID: 6, Name: "b", Type: "bool", DefaultValueJSON: true},
@@ -107,10 +107,8 @@ func TestCreateTableWireShape(t *testing.T) {
 		t.Errorf("request body missing constraints.checks; got %s", body)
 	}
 
-	// Omitempty sanity: the id column sets neither field, so those keys must
-	// not appear anywhere in the body (regression guard against accidental
-	// `null` literals that the engine would later reject).
-	for _, banned := range []string{`"enum_variants":null`, `"default_value":null`} {
+	// An unset enum list must not leak as null. Explicit default null is valid.
+	for _, banned := range []string{`"enum_variants":null`} {
 		if strings.Contains(body, banned) {
 			t.Errorf("request body unexpectedly contains %q; got %s", banned, body)
 		}
@@ -128,7 +126,7 @@ func TestCreateTableWireShape(t *testing.T) {
 // the wire-shape contract: a column that leaves EnumVariants nil and
 // DefaultValue nil must not emit those keys at all, so the wire stays minimal
 // for the common (no-enum, no-default) case.
-func TestCreateTableColumnOmitsOptionalFieldsWhenUnset(t *testing.T) {
+func TestWireShapeOmitsOptionalFieldsWhenUnset(t *testing.T) {
 	var rawBody []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
