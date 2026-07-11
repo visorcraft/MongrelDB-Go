@@ -4,6 +4,8 @@
 
 <h1 align="center">MongrelDB Go Client</h1>
 
+History retention: `SetHistoryRetentionEpochs`, `HistoryRetentionEpochs`, and `EarliestRetainedEpoch`.
+
 <p align="center">
   <b>Pure Go client for MongrelDB - embedded+server database with SQL, vector search, full-text search, and AI-native retrieval.</b>
   <br />

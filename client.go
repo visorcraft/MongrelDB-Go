@@ -174,6 +174,36 @@ func (c *Client) TableNames(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
+type HistoryRetention struct {
+	HistoryRetentionEpochs uint64 `json:"history_retention_epochs"`
+	EarliestRetainedEpoch  uint64 `json:"earliest_retained_epoch"`
+}
+
+func (c *Client) SetHistoryRetentionEpochs(ctx context.Context, epochs uint64) (HistoryRetention, error) {
+	body, err := c.put(ctx, "/history/retention", map[string]any{"history_retention_epochs": epochs})
+	return decodeHistoryRetention(body, err)
+}
+
+func (c *Client) HistoryRetention(ctx context.Context) (HistoryRetention, error) {
+	body, err := c.get(ctx, "/history/retention")
+	return decodeHistoryRetention(body, err)
+}
+
+func (c *Client) HistoryRetentionEpochs(ctx context.Context) (uint64, error) {
+	r, err := c.HistoryRetention(ctx); return r.HistoryRetentionEpochs, err
+}
+
+func (c *Client) EarliestRetainedEpoch(ctx context.Context) (uint64, error) {
+	r, err := c.HistoryRetention(ctx); return r.EarliestRetainedEpoch, err
+}
+
+func decodeHistoryRetention(body []byte, err error) (HistoryRetention, error) {
+	var r HistoryRetention
+	if err != nil { return r, err }
+	if err := json.Unmarshal(body, &r); err != nil { return r, fmt.Errorf("mongreldb: decode history retention: %w", err) }
+	return r, nil
+}
+
 // CreateTable creates a table named name with the given columns and returns
 // the assigned table id. Pass at most one constraints map to attach engine
 // constraints such as {"checks": [...]}.
@@ -419,6 +449,11 @@ func (c *Client) get(ctx context.Context, path string) ([]byte, error) {
 // returns the response body. A nil body sends an empty request.
 func (c *Client) post(ctx context.Context, path string, body any) ([]byte, error) {
 	return c.do(ctx, http.MethodPost, path, body)
+}
+
+func (c *Client) put(ctx context.Context, path string, body any) ([]byte, error) {
+	return c.do(ctx, http.MethodPut, path, body)
+}
 }
 
 // delete performs a DELETE.

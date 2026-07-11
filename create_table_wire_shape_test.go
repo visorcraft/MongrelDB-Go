@@ -63,6 +63,9 @@ func TestCreateTableWireShape(t *testing.T) {
 			DefaultValueJSON: 4,
 			DefaultExpr:      stringPtr("now"),
 		},
+		{ID: 5, Name: "s", Type: "varchar", DefaultValueJSON: "draft"},
+		{ID: 6, Name: "b", Type: "bool", DefaultValueJSON: true},
+		{ID: 7, Name: "n", Type: "varchar", DefaultValueJSON: json.RawMessage("null")},
 	}
 	constraints := map[string]any{"checks": []any{map[string]any{
 		"id": 1, "name": "id_present", "expr": map[string]any{"IsNotNull": 1},
@@ -83,6 +86,9 @@ func TestCreateTableWireShape(t *testing.T) {
 	}
 	if !strings.Contains(body, `"default_expr":"now"`) {
 		t.Errorf("request body missing default_expr; got %s", body)
+	}
+	for _, want := range []string{`"default_value":"draft"`, `"default_value":true`, `"default_value":null`} {
+		if !strings.Contains(body, want) { t.Errorf("request body missing %s; got %s", want, body) }
 	}
 	var payload struct {
 		Columns []map[string]any `json:"columns"`
