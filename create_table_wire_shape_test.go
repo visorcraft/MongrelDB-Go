@@ -11,6 +11,7 @@ package mongreldb_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -51,7 +52,16 @@ func TestCreateTableWireShape(t *testing.T) {
 			ID:           3,
 			Name:         "created_at",
 			Type:         "timestamp_nanos",
-			DefaultValue: stringPtr("now"),
+			DefaultValue:     stringPtr("legacy"),
+			DefaultValueJSON: 3,
+		},
+		{
+			ID:               4,
+			Name:             "updated_at",
+			Type:             "timestamp_nanos",
+			DefaultValue:     stringPtr("legacy"),
+			DefaultValueJSON: 4,
+			DefaultExpr:      stringPtr("now"),
 		},
 	}
 	constraints := map[string]any{"checks": []any{map[string]any{
@@ -68,9 +78,20 @@ func TestCreateTableWireShape(t *testing.T) {
 	if !strings.Contains(body, `"enum_variants":["active","inactive","paused"]`) {
 		t.Errorf("request body missing enum_variants array; got %s", body)
 	}
-	// Required: default_value is a plain JSON string (not a number, not null).
-	if !strings.Contains(body, `"default_value":"now"`) {
-		t.Errorf("request body missing default_value string; got %s", body)
+	if !strings.Contains(body, `"default_value":3`) {
+		t.Errorf("request body missing scalar default_value; got %s", body)
+	}
+	if !strings.Contains(body, `"default_expr":"now"`) {
+		t.Errorf("request body missing default_expr; got %s", body)
+	}
+	var payload struct {
+		Columns []map[string]any `json:"columns"`
+	}
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		t.Fatalf("decode request: %v", err)
+	}
+	if _, exists := payload.Columns[3]["default_value"]; exists {
+		t.Errorf("default_expr column also emitted default_value; got %s", body)
 	}
 	if !strings.Contains(body, `"constraints":{"checks":[`) ||
 		!strings.Contains(body, `"name":"id_present"`) ||

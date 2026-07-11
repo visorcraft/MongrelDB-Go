@@ -125,6 +125,10 @@ Operations are staged locally and committed atomically. The engine enforces
 unique, foreign-key, and check constraints at commit time. Pass an optional
 constraints map to `CreateTable` to provision engine checks in the same call.
 
+`Column.DefaultValueJSON` preserves a static JSON scalar and takes precedence
+over legacy string `DefaultValue`. `DefaultExpr` selects dynamic `"now"` or
+`"uuid"` defaults and takes precedence server-side.
+
 ```go
 checks := map[string]any{"checks": []any{
 	map[string]any{"id": 1, "name": "id_present", "expr": map[string]any{"IsNotNull": 1}},
