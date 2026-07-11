@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Typed client errors. Each sentinel corresponds to a class of HTTP status
@@ -103,6 +104,10 @@ func newResponseError(status int, body []byte) *ResponseError {
 		default:
 			re.Message = fmt.Sprintf("server error (%d)", status)
 		}
+	}
+	if strings.HasPrefix(strings.TrimSpace(re.Message), "not found:") {
+		re.Status = 404
+		re.sentinel = ErrNotFound
 	}
 	return re
 }
