@@ -4,8 +4,6 @@
 
 <h1 align="center">MongrelDB Go Client</h1>
 
-History retention: `SetHistoryRetentionEpochs`, `HistoryRetentionEpochs`, and `EarliestRetainedEpoch`.
-
 <p align="center">
   <b>Pure Go client for MongrelDB - embedded+server database with SQL, vector search, full-text search, and AI-native retrieval.</b>
   <br />
@@ -129,7 +127,9 @@ constraints map to `CreateTable` to provision engine checks in the same call.
 
 `Column.DefaultValueJSON` preserves a static JSON scalar and takes precedence
 over legacy string `DefaultValue`. `DefaultExpr` selects dynamic `"now"` or
-`"uuid"` defaults and takes precedence server-side.
+`"uuid"` defaults and takes precedence server-side. Explicit null is
+representable with `json.RawMessage("null")`; a literal `"now"` string default
+must use `DefaultValueJSON`, not `DefaultExpr`.
 
 ```go
 checks := map[string]any{"checks": []any{
@@ -207,6 +207,28 @@ db.SQL(ctx, "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM r WHERE 
 db.SQL(ctx, "SELECT id, ROW_NUMBER() OVER (PARTITION BY customer ORDER BY amount DESC) FROM orders")
 ```
 
+## History retention and time travel
+
+The daemon keeps a sliding window of historical commit epochs. Use the retention
+API to control how far back `AS OF EPOCH` SQL queries can read. The routes are
+database-wide and require `ADMIN` permission when the daemon runs with auth.
+
+```go
+ret, err := db.SetHistoryRetentionEpochs(ctx, 1000)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println("window:", ret.HistoryRetentionEpochs)
+fmt.Println("earliest:", ret.EarliestRetainedEpoch)
+
+// Read a previous version of the table.
+rows, _ := db.SQL(ctx, "SELECT value FROM orders AS OF EPOCH 42 WHERE id = 1")
+```
+
+Increasing the retention window prevents newly written epochs from being
+reclaimed; it cannot restore history that has already been pruned, so
+`EarliestRetainedEpoch` never moves backward.
+
 ## User & role management
 
 User, role, and permission management is performed through SQL against the
@@ -273,6 +295,10 @@ if errors.As(err, &re) {
 | `SQL(ctx, sql) ([]map[string]any, error)` | Execute SQL |
 | `Schema(ctx) (map[string]map[string]any, error)` | Full schema catalog |
 | `SchemaFor(ctx, table) (map[string]any, error)` | Single-table descriptor |
+| `HistoryRetention(ctx) (HistoryRetention, error)` | Get both retention values |
+| `SetHistoryRetentionEpochs(ctx, epochs) (HistoryRetention, error)` | Set the durable history-retention window |
+| `HistoryRetentionEpochs(ctx) (uint64, error)` | Current retention window size in epochs |
+| `EarliestRetainedEpoch(ctx) (uint64, error)` | Earliest epoch still readable via `AS OF EPOCH` |
 | `Compact(ctx) (map[string]any, error)` | Compact all tables |
 | `CompactTable(ctx, name) (map[string]any, error)` | Compact one table |
 | `Begin() *Transaction` | Start a batch |

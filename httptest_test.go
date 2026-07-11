@@ -263,3 +263,129 @@ func TestCreateTableColumnOmitsOptionalFieldsWhenUnset(t *testing.T) {
 		}
 	}
 }
+
+// TestHistoryRetentionEpochsSendsGET verifies that HistoryRetentionEpochs and
+// EarliestRetainedEpoch send GET /history/retention and decode the exact
+// response keys.
+func TestHistoryRetentionEpochsSendsGET(t *testing.T) {
+	ctx := context.Background()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/history/retention" {
+			t.Errorf("expected path /history/retention, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"history_retention_epochs":7,"earliest_retained_epoch":3}`))
+	}))
+	defer srv.Close()
+
+	c := mdb.NewClient(srv.URL)
+	got, err := c.HistoryRetentionEpochs(ctx)
+	if err != nil {
+		t.Fatalf("HistoryRetentionEpochs: %v", err)
+	}
+	if got != 7 {
+		t.Errorf("HistoryRetentionEpochs = %d, want 7", got)
+	}
+
+	earliest, err := c.EarliestRetainedEpoch(ctx)
+	if err != nil {
+		t.Fatalf("EarliestRetainedEpoch: %v", err)
+	}
+	if earliest != 3 {
+		t.Errorf("EarliestRetainedEpoch = %d, want 3", earliest)
+	}
+}
+
+// TestSetHistoryRetentionEpochsSendsPUT verifies that SetHistoryRetentionEpochs
+// sends PUT /history/retention with the exact body key and decodes the response.
+func TestSetHistoryRetentionEpochsSendsPUT(t *testing.T) {
+	ctx := context.Background()
+	var gotMethod, gotPath string
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		if r.Body != nil {
+			gotBody, _ = io.ReadAll(r.Body)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %q", r.Header.Get("Content-Type"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"history_retention_epochs":42,"earliest_retained_epoch":1}`))
+	}))
+	defer srv.Close()
+
+	c := mdb.NewClient(srv.URL)
+	resp, err := c.SetHistoryRetentionEpochs(ctx, 42)
+	if err != nil {
+		t.Fatalf("SetHistoryRetentionEpochs: %v", err)
+	}
+	if resp.HistoryRetentionEpochs != 42 {
+		t.Errorf("resp.HistoryRetentionEpochs = %d, want 42", resp.HistoryRetentionEpochs)
+	}
+	if resp.EarliestRetainedEpoch != 1 {
+		t.Errorf("resp.EarliestRetainedEpoch = %d, want 1", resp.EarliestRetainedEpoch)
+	}
+	if gotMethod != http.MethodPut {
+		t.Errorf("method = %s, want PUT", gotMethod)
+	}
+	if gotPath != "/history/retention" {
+		t.Errorf("path = %s, want /history/retention", gotPath)
+	}
+
+	var req map[string]any
+	if err := json.Unmarshal(gotBody, &req); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if len(req) != 1 {
+		t.Errorf("request body has %d keys, want 1", len(req))
+	}
+	if req["history_retention_epochs"] != float64(42) {
+		t.Errorf("request body history_retention_epochs = %v, want 42", req["history_retention_epochs"])
+	}
+}
+
+// TestHistoryRetentionNon2xxPropagates confirms that a non-2xx response from
+// /history/retention is surfaced as a *ResponseError wrapping ErrQuery.
+func TestHistoryRetentionNon2xxPropagates(t *testing.T) {
+	ctx := context.Background()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":{"message":"unavailable","code":"SERVICE_UNAVAILABLE"}}`))
+	}))
+	defer srv.Close()
+
+	c := mdb.NewClient(srv.URL)
+	_, err := c.HistoryRetentionEpochs(ctx)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var re *mdb.ResponseError
+	if !errors.As(err, &re) {
+		t.Fatalf("expected *ResponseError, got %T", err)
+	}
+	if re.Status != 503 {
+		t.Errorf("status = %d, want 503", re.Status)
+	}
+	if !errors.Is(err, mdb.ErrQuery) {
+		t.Errorf("expected error to wrap ErrQuery")
+	}
+
+	_, err = c.SetHistoryRetentionEpochs(ctx, 10)
+	if err == nil {
+		t.Fatal("expected error for SetHistoryRetentionEpochs, got nil")
+	}
+	if !errors.As(err, &re) {
+		t.Fatalf("expected *ResponseError, got %T", err)
+	}
+	if re.Status != 503 {
+		t.Errorf("set status = %d, want 503", re.Status)
+	}
+}

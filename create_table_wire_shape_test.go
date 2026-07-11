@@ -122,6 +122,94 @@ func TestCreateTableWireShape(t *testing.T) {
 	}
 }
 
+// TestCreateTableStaticDefaultMatrix verifies the full static-default contract:
+// string, integer, boolean, explicit JSON null, literal "now", and dynamic
+// default_expr "now"/"uuid". It decodes the request JSON and asserts both the
+// preserved scalar types and that default_expr columns do not emit default_value.
+func TestCreateTableStaticDefaultMatrix(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"table_id":2}`))
+	}))
+	defer srv.Close()
+
+	c := mdb.NewClient(srv.URL)
+	cols := []mdb.Column{
+		{ID: 1, Name: "id", Type: "int64", PrimaryKey: true, Nullable: false},
+		// DefaultValueJSON takes precedence over the legacy string DefaultValue.
+		{ID: 2, Name: "s", Type: "varchar", DefaultValue: wireStringPtr("legacy"), DefaultValueJSON: "draft"},
+		{ID: 3, Name: "i", Type: "int64", DefaultValueJSON: int64(7)},
+		{ID: 4, Name: "b", Type: "bool", DefaultValueJSON: true},
+		{ID: 5, Name: "n", Type: "varchar", DefaultValueJSON: json.RawMessage("null")},
+		// Literal "now" string must stay a literal, not become a dynamic expr.
+		{ID: 6, Name: "now_literal", Type: "timestamp_nanos", DefaultValue: wireStringPtr("now"), DefaultValueJSON: "now"},
+		{ID: 7, Name: "now_expr", Type: "timestamp_nanos", DefaultExpr: wireStringPtr("now")},
+		{ID: 8, Name: "uuid_expr", Type: "uuid", DefaultExpr: wireStringPtr("uuid")},
+	}
+	if _, err := c.CreateTable(context.Background(), "default_matrix", cols); err != nil {
+		t.Fatalf("CreateTable: %v", err)
+	}
+
+	var payload struct {
+		Name    string                       `json:"name"`
+		Columns []map[string]json.RawMessage `json:"columns"`
+	}
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		t.Fatalf("decode request JSON: %v", err)
+	}
+	if payload.Name != "default_matrix" {
+		t.Errorf("table name = %q, want %q", payload.Name, "default_matrix")
+	}
+
+	byName := make(map[string]map[string]json.RawMessage, len(payload.Columns))
+	for _, col := range payload.Columns {
+		var name string
+		if err := json.Unmarshal(col["name"], &name); err != nil {
+			t.Fatalf("decode column name: %v", err)
+		}
+		byName[name] = col
+	}
+
+	assertRaw := func(t *testing.T, name, key string, want json.RawMessage) {
+		t.Helper()
+		col, ok := byName[name]
+		if !ok {
+			t.Fatalf("column %q missing from request", name)
+		}
+		got, ok := col[key]
+		if !ok {
+			t.Fatalf("column %q missing key %q", name, key)
+		}
+		if string(got) != string(want) {
+			t.Errorf("column %q %q = %s, want %s", name, key, got, want)
+		}
+	}
+	assertMissing := func(t *testing.T, name, key string) {
+		t.Helper()
+		col, ok := byName[name]
+		if !ok {
+			t.Fatalf("column %q missing from request", name)
+		}
+		if _, ok := col[key]; ok {
+			t.Errorf("column %q unexpectedly has key %q", name, key)
+		}
+	}
+
+	assertRaw(t, "s", "default_value", json.RawMessage(`"draft"`))
+	assertRaw(t, "i", "default_value", json.RawMessage(`7`))
+	assertRaw(t, "b", "default_value", json.RawMessage(`true`))
+	assertRaw(t, "n", "default_value", json.RawMessage(`null`))
+	assertRaw(t, "now_literal", "default_value", json.RawMessage(`"now"`))
+
+	assertRaw(t, "now_expr", "default_expr", json.RawMessage(`"now"`))
+	assertMissing(t, "now_expr", "default_value")
+	assertRaw(t, "uuid_expr", "default_expr", json.RawMessage(`"uuid"`))
+	assertMissing(t, "uuid_expr", "default_value")
+}
+
 // TestCreateTableColumnOmitsOptionalFieldsWhenUnset is the negative half of
 // the wire-shape contract: a column that leaves EnumVariants nil and
 // DefaultValue nil must not emit those keys at all, so the wire stays minimal

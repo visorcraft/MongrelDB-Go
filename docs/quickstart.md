@@ -163,7 +163,39 @@ total rows: 2
 | `.Execute(ctx)` | Sends the query and decodes the `rows` array. |
 | `db.Count(ctx, table)` | GET `/tables/{name}/count`. |
 
-## 6. Common pitfalls
+## 6. Static defaults and history retention
+
+Column defaults are serialized as typed JSON values. Use `DefaultValueJSON` for
+static scalars and `DefaultExpr` for dynamic `"now"` or `"uuid"` defaults. An
+explicit JSON null is written as `json.RawMessage("null")`.
+
+```go
+import "encoding/json"
+
+nowExpr := "now"
+_, err := db.CreateTable(ctx, "events", []mdb.Column{
+    {ID: 1, Name: "id", Type: "int64", PrimaryKey: true, Nullable: false},
+    {ID: 2, Name: "status", Type: "varchar", DefaultValueJSON: "draft"},
+    {ID: 3, Name: "score", Type: "int64", DefaultValueJSON: int64(0)},
+    {ID: 4, Name: "enabled", Type: "bool", DefaultValueJSON: true},
+    {ID: 5, Name: "archived", Type: "varchar", DefaultValueJSON: json.RawMessage("null")},
+    {ID: 6, Name: "created_at", Type: "timestamp_nanos", DefaultExpr: &nowExpr},
+})
+```
+
+The daemon keeps a configurable window of historical epochs for time-travel
+queries. Set the window before writing data you may need to revisit:
+
+```go
+if _, err := db.SetHistoryRetentionEpochs(ctx, 1000); err != nil {
+    panic(err)
+}
+
+// Later, read an earlier version of the table with AS OF EPOCH.
+rows, _ := db.SQL(ctx, "SELECT status FROM events AS OF EPOCH 42 WHERE id = 1")
+```
+
+## 7. Common pitfalls
 
 **Using the column name instead of the column id.** Every on-wire API uses the
 numeric `id` from `CreateTable`, never the `name`. The query builder's

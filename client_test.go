@@ -534,6 +534,153 @@ func TestBasicAuthOptionIsApplied(t *testing.T) {
 	}
 }
 
+func TestHistoryRetentionSetGetRoundTrip(t *testing.T) {
+	skipIfNoClient(t)
+	ctx := context.Background()
+
+	initial, err := testClient.HistoryRetentionEpochs(ctx)
+	if err != nil {
+		t.Fatalf("HistoryRetentionEpochs: %v", err)
+	}
+	t.Cleanup(func() { _, _ = testClient.SetHistoryRetentionEpochs(ctx, initial) })
+
+	resp, err := testClient.SetHistoryRetentionEpochs(ctx, 123)
+	if err != nil {
+		t.Fatalf("SetHistoryRetentionEpochs: %v", err)
+	}
+	if resp.HistoryRetentionEpochs != 123 {
+		t.Errorf("resp.HistoryRetentionEpochs = %d, want 123", resp.HistoryRetentionEpochs)
+	}
+
+	got, err := testClient.HistoryRetentionEpochs(ctx)
+	if err != nil {
+		t.Fatalf("HistoryRetentionEpochs after set: %v", err)
+	}
+	if got != 123 {
+		t.Errorf("HistoryRetentionEpochs = %d, want 123", got)
+	}
+
+	if _, err := testClient.EarliestRetainedEpoch(ctx); err != nil {
+		t.Fatalf("EarliestRetainedEpoch: %v", err)
+	}
+
+	resp2, err := testClient.SetHistoryRetentionEpochs(ctx, 456)
+	if err != nil {
+		t.Fatalf("SetHistoryRetentionEpochs second: %v", err)
+	}
+	if resp2.HistoryRetentionEpochs != 456 {
+		t.Errorf("resp2.HistoryRetentionEpochs = %d, want 456", resp2.HistoryRetentionEpochs)
+	}
+}
+
+func TestHistoryRetentionASOfEpochRead(t *testing.T) {
+	skipIfNoClient(t)
+	ctx := context.Background()
+
+	initial, err := testClient.HistoryRetentionEpochs(ctx)
+	if err != nil {
+		t.Fatalf("HistoryRetentionEpochs: %v", err)
+	}
+	t.Cleanup(func() { _, _ = testClient.SetHistoryRetentionEpochs(ctx, initial) })
+
+	resp, err := testClient.SetHistoryRetentionEpochs(ctx, 100)
+	if err != nil {
+		t.Fatalf("SetHistoryRetentionEpochs: %v", err)
+	}
+	window := resp.HistoryRetentionEpochs
+
+	name := uniqueTable("go_retention")
+	freshTable(t, ctx, name, intCol(1, "id", true), intCol(2, "value", false))
+
+	if _, err := testClient.Put(ctx, name, mdb.Cells{1: int64(1), 2: int64(10)}, ""); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	// Find a retained epoch where the original value is still visible.
+	hr, err := testClient.HistoryRetention(ctx)
+	if err != nil {
+		t.Fatalf("HistoryRetention: %v", err)
+	}
+	earliest := hr.EarliestRetainedEpoch
+	oldEpoch, ok := findEpochWithValue(t, ctx, name, 1, 10, earliest, earliest+window)
+	if !ok {
+		t.Fatalf("could not find retained epoch with value 10")
+	}
+
+	if _, err := testClient.Upsert(ctx, name, mdb.Cells{1: int64(1), 2: int64(20)}, mdb.Cells{2: int64(20)}, ""); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	// Current value is 20.
+	rows, err := testClient.SQL(ctx, fmt.Sprintf("SELECT value FROM %s WHERE id = 1", name))
+	if err != nil {
+		t.Fatalf("current SELECT: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 current row, got %d", len(rows))
+	}
+	if got := sqlInt64(t, rows[0], "value"); got != 20 {
+		t.Errorf("current value = %d, want 20", got)
+	}
+
+	// Historical value at the discovered epoch is still 10.
+	histSQL := fmt.Sprintf("SELECT value FROM %s AS OF EPOCH %d WHERE id = 1", name, oldEpoch)
+	rows, err = testClient.SQL(ctx, histSQL)
+	if err != nil {
+		t.Fatalf("AS OF EPOCH SELECT: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 historical row, got %d", len(rows))
+	}
+	if got := sqlInt64(t, rows[0], "value"); got != 10 {
+		t.Errorf("historical value at epoch %d = %d, want 10", oldEpoch, got)
+	}
+}
+
+// findEpochWithValue searches [lo, hi] for an epoch where the row with pk has
+// the given value. It returns the first matching epoch and true, or false if
+// none is found.
+func findEpochWithValue(
+	t *testing.T,
+	ctx context.Context,
+	table string,
+	pk int64,
+	want int64,
+	lo uint64,
+	hi uint64,
+) (uint64, bool) {
+	t.Helper()
+	for e := lo; e <= hi; e++ {
+		rows, err := testClient.SQL(ctx, fmt.Sprintf(
+			"SELECT value FROM %s AS OF EPOCH %d WHERE id = %d",
+			table, e, pk,
+		))
+		if err != nil {
+			continue
+		}
+		if len(rows) == 1 {
+			if got := sqlInt64(t, rows[0], "value"); got == want {
+				return e, true
+			}
+		}
+	}
+	return 0, false
+}
+
+// sqlInt64 extracts an int64 from a SQL row map by column name.
+func sqlInt64(t *testing.T, row map[string]any, col string) int64 {
+	t.Helper()
+	v, ok := row[col]
+	if !ok {
+		t.Fatalf("row missing column %q", col)
+	}
+	n, err := toInt64(v)
+	if err != nil {
+		t.Fatalf("column %q not int64: %v (%T)", col, v, v)
+	}
+	return n
+}
+
 func containsString(xs []string, s string) bool {
 	for _, x := range xs {
 		if x == s {

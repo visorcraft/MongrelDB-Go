@@ -177,26 +177,35 @@ func (c *Client) TableNames(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
+// HistoryRetention is the response shape for the /history/retention endpoint.
 type HistoryRetention struct {
 	HistoryRetentionEpochs uint64 `json:"history_retention_epochs"`
 	EarliestRetainedEpoch  uint64 `json:"earliest_retained_epoch"`
 }
 
+// SetHistoryRetentionEpochs sets the database-wide history retention window to
+// epochs and returns the post-update retention state. The call maps to
+// PUT /history/retention with body {"history_retention_epochs": epochs}.
 func (c *Client) SetHistoryRetentionEpochs(ctx context.Context, epochs uint64) (HistoryRetention, error) {
 	body, err := c.put(ctx, "/history/retention", map[string]any{"history_retention_epochs": epochs})
 	return decodeHistoryRetention(body, err)
 }
 
+// HistoryRetention returns the current retention state from
+// GET /history/retention.
 func (c *Client) HistoryRetention(ctx context.Context) (HistoryRetention, error) {
 	body, err := c.get(ctx, "/history/retention")
 	return decodeHistoryRetention(body, err)
 }
 
+// HistoryRetentionEpochs returns the current history_retention_epochs value.
 func (c *Client) HistoryRetentionEpochs(ctx context.Context) (uint64, error) {
 	r, err := c.HistoryRetention(ctx)
 	return r.HistoryRetentionEpochs, err
 }
 
+// EarliestRetainedEpoch returns the earliest epoch still available for time-travel
+// queries. Increasing the retention window cannot move this value backward.
 func (c *Client) EarliestRetainedEpoch(ctx context.Context) (uint64, error) {
 	r, err := c.HistoryRetention(ctx)
 	return r.EarliestRetainedEpoch, err
