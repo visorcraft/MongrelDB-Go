@@ -637,6 +637,73 @@ func TestHistoryRetentionASOfEpochRead(t *testing.T) {
 	}
 }
 
+// TestHistoryRetentionShrinkAdvancesFloorAndDoesNotRestore exercises the
+// retention-floor lifecycle that AS-of reads do not: shrinking the window must
+// prune old epochs (the floor advances), and re-expanding must NOT bring the
+// pruned history back (the floor never retreats).
+func TestHistoryRetentionShrinkAdvancesFloorAndDoesNotRestore(t *testing.T) {
+	skipIfNoClient(t)
+	ctx := context.Background()
+
+	initial, err := testClient.HistoryRetentionEpochs(ctx)
+	if err != nil {
+		t.Fatalf("HistoryRetentionEpochs: %v", err)
+	}
+	t.Cleanup(func() { _, _ = testClient.SetHistoryRetentionEpochs(ctx, initial) })
+
+	// 1. Wide window so writes are retained well below the current epoch.
+	if _, err := testClient.SetHistoryRetentionEpochs(ctx, 10000); err != nil {
+		t.Fatalf("set wide retention: %v", err)
+	}
+	wideFloor := mustEarliestRetainedEpoch(t, ctx)
+
+	name := uniqueTable("go_shrink")
+	freshTable(t, ctx, name, intCol(1, "id", true), intCol(2, "value", false))
+
+	if _, err := testClient.Put(ctx, name, mdb.Cells{1: int64(1), 2: int64(10)}, ""); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	// Advance the epoch clock with a few writes so the narrow floor lands well
+	// above the wide floor.
+	for i := 0; i < 3; i++ {
+		if _, err := testClient.Put(ctx, name, mdb.Cells{1: int64(100 + i), 2: int64(i)}, ""); err != nil {
+			t.Fatalf("Put advance #%d: %v", i, err)
+		}
+	}
+
+	// 2. Shrink to a narrow window. The floor must advance (old epochs pruned).
+	if _, err := testClient.SetHistoryRetentionEpochs(ctx, 1); err != nil {
+		t.Fatalf("set narrow retention: %v", err)
+	}
+	narrowFloor := mustEarliestRetainedEpoch(t, ctx)
+	if narrowFloor < wideFloor {
+		t.Fatalf("narrow floor %d below wide floor %d (floor should advance on shrink)",
+			narrowFloor, wideFloor)
+	}
+
+	// 3. Re-expand to the wide window. Pruned history must NOT come back: the
+	// floor cannot retreat below the narrow-window floor.
+	if _, err := testClient.SetHistoryRetentionEpochs(ctx, 10000); err != nil {
+		t.Fatalf("re-expand retention: %v", err)
+	}
+	reexpandedFloor := mustEarliestRetainedEpoch(t, ctx)
+	if reexpandedFloor < narrowFloor {
+		t.Fatalf("re-expanded floor %d retreated below narrow floor %d (pruned history was restored)",
+			reexpandedFloor, narrowFloor)
+	}
+}
+
+// mustEarliestRetainedEpoch fetches the earliest retained epoch, failing the
+// test on any transport error.
+func mustEarliestRetainedEpoch(t *testing.T, ctx context.Context) uint64 {
+	t.Helper()
+	hr, err := testClient.HistoryRetention(ctx)
+	if err != nil {
+		t.Fatalf("HistoryRetention: %v", err)
+	}
+	return hr.EarliestRetainedEpoch
+}
+
 // findEpochWithValue searches [lo, hi] for an epoch where the row with pk has
 // the given value. It returns the first matching epoch and true, or false if
 // none is found.
