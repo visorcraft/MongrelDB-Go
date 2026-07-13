@@ -24,6 +24,7 @@ type QueryBuilder struct {
 	conditions []map[string]any // each is {type: {normalized params}}
 	projection []int64
 	limit      *int64
+	offset     *int64
 	lastTrunc  bool
 }
 
@@ -63,6 +64,13 @@ func (q *QueryBuilder) Limit(limit int64) *QueryBuilder {
 	return q
 }
 
+// Offset skips matching rows before applying the limit.
+func (q *QueryBuilder) Offset(offset int64) *QueryBuilder {
+	o := offset
+	q.offset = &o
+	return q
+}
+
 // Build returns the request payload that will be sent to /kit/query.
 func (q *QueryBuilder) Build() map[string]any {
 	payload := map[string]any{"table": q.table}
@@ -75,6 +83,9 @@ func (q *QueryBuilder) Build() map[string]any {
 	}
 	if q.limit != nil {
 		payload["limit"] = *q.limit
+	}
+	if q.offset != nil {
+		payload["offset"] = *q.offset
 	}
 	return payload
 }

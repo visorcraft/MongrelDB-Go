@@ -167,6 +167,9 @@ func TestQueryBuilderAliasNormalization(t *testing.T) {
 				t.Errorf("canonical key %q missing from request: %v", k, params)
 			}
 		}
+		if got["offset"] != float64(12) {
+			t.Errorf("expected offset 12, got %v", got["offset"])
+		}
 	}))
 	defer srv.Close()
 
@@ -174,6 +177,7 @@ func TestQueryBuilderAliasNormalization(t *testing.T) {
 	rows, err := c.Query("orders").
 		Where("range", map[string]any{"column": int64(3), "min": 100.0, "max": 150.0}).
 		Limit(10).
+		Offset(12).
 		Execute(context.Background())
 	if err != nil {
 		t.Fatalf("Execute: %v", err)

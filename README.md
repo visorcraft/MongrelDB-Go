@@ -310,6 +310,7 @@ if errors.As(err, &re) {
 | `Where(type, params) *QueryBuilder` | Add a native condition (AND-ed) |
 | `Projection(columnIDs []int64) *QueryBuilder` | Set column projection |
 | `Limit(limit int64) *QueryBuilder` | Set row limit |
+| `Offset(offset int64) *QueryBuilder` | Skip matching rows before the limit |
 | `Build() map[string]any` | Build the request payload |
 | `Execute(ctx) ([]map[string]any, error)` | Run the query |
 | `Truncated() bool` | Whether the last `Execute` result hit the limit |
