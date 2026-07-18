@@ -193,18 +193,22 @@ func (s *SearchBuilder) Execute(ctx context.Context) (*SearchResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	hits, _ := body["hits"].([]any)
-	out := &SearchResult{Hits: make([]map[string]any, 0, len(hits))}
-	for _, h := range hits {
-		if m, ok := h.(map[string]any); ok {
-			out.Hits = append(out.Hits, m)
+	var resp struct {
+		Hits       []map[string]any `json:"hits"`
+		Trace      any              `json:"trace"`
+		NextCursor string           `json:"next_cursor"`
+	}
+	if len(body) > 0 {
+		if err := decodeJSON(body, &resp); err != nil {
+			return nil, fmt.Errorf("mongreldb: decode search response: %w", err)
 		}
 	}
-	if t, ok := body["trace"]; ok {
-		out.Trace = t
+	if resp.Hits == nil {
+		resp.Hits = []map[string]any{}
 	}
-	if c, ok := body["next_cursor"].(string); ok {
-		out.NextCursor = c
-	}
-	return out, nil
+	return &SearchResult{
+		Hits:       resp.Hits,
+		Trace:      resp.Trace,
+		NextCursor: resp.NextCursor,
+	}, nil
 }
