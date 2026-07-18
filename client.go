@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
@@ -556,11 +557,25 @@ func (c *Client) CommitTxn(ctx context.Context, ops []map[string]any, idempotenc
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 // flattenCells converts a Cells map to the server's flat
-// [col_id, value, col_id, value, ...] array. Pair order is not significant.
+// [col_id, value, col_id, value, ...] array.
+//
+// Pairs are emitted in ascending column-id order so the on-wire JSON is
+// stable. The server binds idempotency keys to a hash of the request payload;
+// Go map iteration order is random, and non-deterministic pair order would
+// make two commits of the same cells with the same key look like a reuse
+// mismatch (HTTP 409 IDEMPOTENCY_KEY_REUSE_MISMATCH).
 func flattenCells(cells Cells) []any {
+	if len(cells) == 0 {
+		return []any{}
+	}
+	ids := make([]int64, 0, len(cells))
+	for id := range cells {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	flat := make([]any, 0, len(cells)*2)
-	for id, val := range cells {
-		flat = append(flat, id, val)
+	for _, id := range ids {
+		flat = append(flat, id, cells[id])
 	}
 	return flat
 }
