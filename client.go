@@ -60,9 +60,9 @@ type Column struct {
 }
 
 type AnnIndexOptions struct {
-	M              int    `json:"m,omitempty"`
-	EFConstruction int    `json:"ef_construction,omitempty"`
-	EFSearch       int    `json:"ef_search,omitempty"`
+	M              int             `json:"m,omitempty"`
+	EFConstruction int             `json:"ef_construction,omitempty"`
+	EFSearch       int             `json:"ef_search,omitempty"`
 	Quantization   string          `json:"quantization,omitempty"`
 	Algorithm      string          `json:"algorithm,omitempty"`
 	DiskANN        *DiskANNOptions `json:"diskann,omitempty"`
