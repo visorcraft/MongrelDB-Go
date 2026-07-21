@@ -143,7 +143,8 @@ func TestCreateTableAllIndexesAndEmbeddingSourceWireShape(t *testing.T) {
 		{Name: "bm", ColumnID: 1, Kind: "bitmap"},
 		{Name: "fm", ColumnID: 1, Kind: "fm_index"},
 		{Name: "ann", ColumnID: 2, Kind: "ann", Predicate: "embedding IS NOT NULL", Options: mdb.IndexOptions{ANN: &mdb.AnnIndexOptions{
-			M: 24, EFConstruction: 96, EFSearch: 48, Quantization: "dense",
+			M: 24, EFConstruction: 96, EFSearch: 48, Quantization: "dense", Algorithm: "diskann",
+			DiskANN: &mdb.DiskANNOptions{R: 64, L: 128, BeamWidth: 8, Alpha: 120},
 		}}},
 		{Name: "range", ColumnID: 1, Kind: "learned_range", Options: mdb.IndexOptions{LearnedRange: &mdb.LearnedRangeIndexOptions{Epsilon: 8}}},
 		{Name: "minhash", ColumnID: 1, Kind: "minhash", Options: mdb.IndexOptions{MinHash: &mdb.MinHashIndexOptions{Permutations: 64, Bands: 16}}},
@@ -157,7 +158,8 @@ func TestCreateTableAllIndexesAndEmbeddingSourceWireShape(t *testing.T) {
 	for _, want := range []string{
 		`"embedding_source":{"kind":"configured_model"`,
 		`"kind":"bitmap"`, `"kind":"fm_index"`, `"kind":"ann"`,
-		`"quantization":"dense"`, `"m":24`, `"predicate":"embedding IS NOT NULL"`,
+		`"quantization":"dense"`, `"algorithm":"diskann"`, `"r":64`, `"beam_width":8`,
+		`"m":24`, `"predicate":"embedding IS NOT NULL"`,
 		`"kind":"learned_range"`, `"epsilon":8`,
 		`"kind":"minhash"`, `"permutations":64`, `"kind":"sparse"`,
 	} {

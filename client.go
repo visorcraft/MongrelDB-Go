@@ -63,7 +63,16 @@ type AnnIndexOptions struct {
 	M              int    `json:"m,omitempty"`
 	EFConstruction int    `json:"ef_construction,omitempty"`
 	EFSearch       int    `json:"ef_search,omitempty"`
-	Quantization   string `json:"quantization,omitempty"`
+	Quantization   string          `json:"quantization,omitempty"`
+	Algorithm      string          `json:"algorithm,omitempty"`
+	DiskANN        *DiskANNOptions `json:"diskann,omitempty"`
+}
+
+type DiskANNOptions struct {
+	R         int `json:"r,omitempty"`
+	L         int `json:"l,omitempty"`
+	BeamWidth int `json:"beam_width,omitempty"`
+	Alpha     int `json:"alpha,omitempty"`
 }
 
 type MinHashIndexOptions struct {
