@@ -55,6 +55,44 @@ type Column struct {
 	// the legacy string-only DefaultValue field.
 	DefaultValueJSON any     `json:"-"`
 	DefaultExpr      *string `json:"default_expr,omitempty"`
+	// EmbeddingSource is the portable model/source descriptor for embedding columns.
+	EmbeddingSource any `json:"embedding_source,omitempty"`
+}
+
+type AnnIndexOptions struct {
+	M              int    `json:"m,omitempty"`
+	EFConstruction int    `json:"ef_construction,omitempty"`
+	EFSearch       int    `json:"ef_search,omitempty"`
+	Quantization   string `json:"quantization,omitempty"`
+}
+
+type MinHashIndexOptions struct {
+	Permutations int `json:"permutations,omitempty"`
+	Bands        int `json:"bands,omitempty"`
+}
+
+type LearnedRangeIndexOptions struct {
+	Epsilon int `json:"epsilon,omitempty"`
+}
+
+type IndexOptions struct {
+	ANN          *AnnIndexOptions          `json:"ann,omitempty"`
+	MinHash      *MinHashIndexOptions      `json:"minhash,omitempty"`
+	LearnedRange *LearnedRangeIndexOptions `json:"learned_range,omitempty"`
+}
+
+// Index describes one of MongrelDB's six public secondary index kinds.
+type Index struct {
+	Name      string       `json:"name"`
+	ColumnID  int64        `json:"column_id"`
+	Kind      string       `json:"kind"`
+	Predicate string       `json:"predicate,omitempty"`
+	Options   IndexOptions `json:"options,omitempty"`
+}
+
+type CreateTableOptions struct {
+	Constraints map[string]any
+	Indexes     []Index
 }
 
 func (c Column) MarshalJSON() ([]byte, error) {
@@ -230,12 +268,24 @@ func (c *Client) CreateTable(ctx context.Context, name string, columns []Column,
 	if len(constraints) > 1 {
 		return 0, fmt.Errorf("mongreldb: CreateTable accepts at most one constraints map")
 	}
+	var tableOptions CreateTableOptions
+	if len(constraints) == 1 {
+		tableOptions.Constraints = constraints[0]
+	}
+	return c.CreateTableWithOptions(ctx, name, columns, tableOptions)
+}
+
+// CreateTableWithOptions creates a table with constraints and full index definitions.
+func (c *Client) CreateTableWithOptions(ctx context.Context, name string, columns []Column, options CreateTableOptions) (int64, error) {
 	payload := map[string]any{
 		"name":    name,
 		"columns": columns,
 	}
-	if len(constraints) == 1 && constraints[0] != nil {
-		payload["constraints"] = constraints[0]
+	if options.Constraints != nil {
+		payload["constraints"] = options.Constraints
+	}
+	if options.Indexes != nil {
+		payload["indexes"] = options.Indexes
 	}
 	body, err := c.post(ctx, "/kit/create_table", payload)
 	if err != nil {

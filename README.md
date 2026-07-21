@@ -285,6 +285,7 @@ if errors.As(err, &re) {
 | `Health(ctx) (bool, error)` | Check daemon health |
 | `TableNames(ctx) ([]string, error)` | List table names |
 | `CreateTable(ctx, name, columns, constraints...) (int64, error)` | Create a table, optionally attach engine constraints; returns the table id |
+| `CreateTableWithOptions(ctx, name, columns, options) (int64, error)` | Create a table with typed index options and embedding sources |
 | `DropTable(ctx, name) error` | Drop a table |
 | `Count(ctx, table) (int64, error)` | Row count |
 | `Put(ctx, table, cells, idempotencyKey) (map[string]any, error)` | Insert a row |

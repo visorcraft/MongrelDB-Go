@@ -122,6 +122,51 @@ func TestCreateTableWireShape(t *testing.T) {
 	}
 }
 
+func TestCreateTableAllIndexesAndEmbeddingSourceWireShape(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"table_id":1}`))
+	}))
+	defer srv.Close()
+
+	c := mdb.NewClient(srv.URL)
+	columns := []mdb.Column{
+		{ID: 1, Name: "id", Type: "int64", PrimaryKey: true},
+		{ID: 2, Name: "embedding", Type: "embedding(384)", EmbeddingSource: map[string]any{
+			"kind": "configured_model", "provider_id": "docs",
+			"model_id": "model", "model_version": "1",
+		}},
+	}
+	indexes := []mdb.Index{
+		{Name: "bm", ColumnID: 1, Kind: "bitmap"},
+		{Name: "fm", ColumnID: 1, Kind: "fm_index"},
+		{Name: "ann", ColumnID: 2, Kind: "ann", Predicate: "embedding IS NOT NULL", Options: mdb.IndexOptions{ANN: &mdb.AnnIndexOptions{
+			M: 24, EFConstruction: 96, EFSearch: 48, Quantization: "dense",
+		}}},
+		{Name: "range", ColumnID: 1, Kind: "learned_range", Options: mdb.IndexOptions{LearnedRange: &mdb.LearnedRangeIndexOptions{Epsilon: 8}}},
+		{Name: "minhash", ColumnID: 1, Kind: "minhash", Options: mdb.IndexOptions{MinHash: &mdb.MinHashIndexOptions{Permutations: 64, Bands: 16}}},
+		{Name: "sparse", ColumnID: 1, Kind: "sparse"},
+	}
+	_, err := c.CreateTableWithOptions(context.Background(), "search_docs", columns, mdb.CreateTableOptions{Indexes: indexes})
+	if err != nil {
+		t.Fatalf("CreateTableWithOptions: %v", err)
+	}
+	body := string(rawBody)
+	for _, want := range []string{
+		`"embedding_source":{"kind":"configured_model"`,
+		`"kind":"bitmap"`, `"kind":"fm_index"`, `"kind":"ann"`,
+		`"quantization":"dense"`, `"m":24`, `"predicate":"embedding IS NOT NULL"`,
+		`"kind":"learned_range"`, `"epsilon":8`,
+		`"kind":"minhash"`, `"permutations":64`, `"kind":"sparse"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("request body missing %s; got %s", want, body)
+		}
+	}
+}
+
 // TestCreateTableStaticDefaultMatrix verifies the full static-default contract:
 // string, integer, boolean, explicit JSON null, literal "now", and dynamic
 // default_expr "now"/"uuid". It decodes the request JSON and asserts both the
