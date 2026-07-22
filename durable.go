@@ -17,44 +17,44 @@ type CommitHlc struct {
 // DurableOutcome is the nested durable recovery payload on query status/cancel
 // responses (parity with the server DurableOutcome / outcome JSON object).
 type DurableOutcome struct {
-	Committed                 *bool     `json:"committed"`
-	CommittedStatements       *int      `json:"committed_statements"`
-	LastCommitEpoch           *uint64   `json:"last_commit_epoch"`
-	LastCommitEpochText       *string   `json:"last_commit_epoch_text"`
+	Committed                 *bool      `json:"committed"`
+	CommittedStatements       *int       `json:"committed_statements"`
+	LastCommitEpoch           *uint64    `json:"last_commit_epoch"`
+	LastCommitEpochText       *string    `json:"last_commit_epoch_text"`
 	LastCommitHlc             *CommitHlc `json:"last_commit_hlc"`
-	FirstCommitStatementIndex *int      `json:"first_commit_statement_index"`
-	LastCommitStatementIndex  *int      `json:"last_commit_statement_index"`
-	CompletedStatements       *int      `json:"completed_statements"`
-	StatementIndex            *int      `json:"statement_index"`
-	Serialization             string    `json:"serialization"`
-	SerializationState        string    `json:"serialization_state"`
-	TerminalState             *string   `json:"terminal_state"`
+	FirstCommitStatementIndex *int       `json:"first_commit_statement_index"`
+	LastCommitStatementIndex  *int       `json:"last_commit_statement_index"`
+	CompletedStatements       *int       `json:"completed_statements"`
+	StatementIndex            *int       `json:"statement_index"`
+	Serialization             string     `json:"serialization"`
+	SerializationState        string     `json:"serialization_state"`
+	TerminalState             *string    `json:"terminal_state"`
 }
 
 // QueryStatus is GET /queries/{query_id} (SQL control / durable recovery).
 type QueryStatus struct {
-	QueryID              string          `json:"query_id"`
-	Status               string          `json:"status"`
-	State                string          `json:"state"`
-	ServerState          string          `json:"server_state"`
-	TerminalState        *string         `json:"terminal_state"`
-	Operation            string          `json:"operation"`
-	Committed            *bool           `json:"committed"`
-	CommittedStatements  *int            `json:"committed_statements"`
-	LastCommitEpoch      *uint64         `json:"last_commit_epoch"`
-	LastCommitEpochText  *string         `json:"last_commit_epoch_text"`
-	LastCommitHlc        *CommitHlc      `json:"last_commit_hlc"`
-	FirstCommitStmtIdx   *int            `json:"first_commit_statement_index"`
-	LastCommitStmtIdx    *int            `json:"last_commit_statement_index"`
-	CompletedStatements  *int            `json:"completed_statements"`
-	StatementIndex       *int            `json:"statement_index"`
-	CancelOutcome        *string         `json:"cancel_outcome"`
-	CancellationReason   string          `json:"cancellation_reason"`
-	Retryable            bool            `json:"retryable"`
-	Outcome              DurableOutcome  `json:"outcome"`
-	Durable              *DurableOutcome `json:"durable"`
-	TerminalError        json.RawMessage `json:"terminal_error"`
-	Trace                json.RawMessage `json:"trace"`
+	QueryID             string          `json:"query_id"`
+	Status              string          `json:"status"`
+	State               string          `json:"state"`
+	ServerState         string          `json:"server_state"`
+	TerminalState       *string         `json:"terminal_state"`
+	Operation           string          `json:"operation"`
+	Committed           *bool           `json:"committed"`
+	CommittedStatements *int            `json:"committed_statements"`
+	LastCommitEpoch     *uint64         `json:"last_commit_epoch"`
+	LastCommitEpochText *string         `json:"last_commit_epoch_text"`
+	LastCommitHlc       *CommitHlc      `json:"last_commit_hlc"`
+	FirstCommitStmtIdx  *int            `json:"first_commit_statement_index"`
+	LastCommitStmtIdx   *int            `json:"last_commit_statement_index"`
+	CompletedStatements *int            `json:"completed_statements"`
+	StatementIndex      *int            `json:"statement_index"`
+	CancelOutcome       *string         `json:"cancel_outcome"`
+	CancellationReason  string          `json:"cancellation_reason"`
+	Retryable           bool            `json:"retryable"`
+	Outcome             DurableOutcome  `json:"outcome"`
+	Durable             *DurableOutcome `json:"durable"`
+	TerminalError       json.RawMessage `json:"terminal_error"`
+	Trace               json.RawMessage `json:"trace"`
 }
 
 // CommitHlc returns the authoritative HLC from nested durable / outcome / top-level.
