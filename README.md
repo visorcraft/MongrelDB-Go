@@ -384,6 +384,11 @@ Contributions are welcome. Please:
 3. Run `gofmt -l .` and `go vet ./...` before submitting.
 4. Keep the client cgo-free and dependency-free (standard library only).
 
+## Related tools
+
+- [Mongrel](https://visorcraft.com/mongreldb) — Commercial multi-system workbench with native MongrelDB support.
+- [MongrelDB Viewer](https://github.com/visorcraft/MongrelDB-Viewer) — Free, open-source MongrelDB GUI and MCP server.
+
 ## License
 
 Dual-licensed under the **MIT License** or the **Apache License, Version 2.0**,
