@@ -1,4 +1,4 @@
 package mongreldb
 
 // Version is the client library version (aligned with the MongrelDB train).
-const Version = "0.64.19"
+const Version = "0.65.0"
